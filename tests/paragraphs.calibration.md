@@ -26,3 +26,7 @@ Thresholds set from this run: UNIFORM-DOC at paragraph-length cv below
 UNIFORM rhythm at sentence-length cv below 0.35 inside a paragraph. Add a
 document to this table whenever a reader says "this reads as AI" and the
 sentence checks find nothing.
+
+Refinement, 25 Aug: a list item that opens with a bold phrase ("**Counts.** Vale and
+the counters…") is a labelled step, not a lead-in, and no longer counts. The tell is
+the label on a running paragraph. This README's seven-step list had tripped it.

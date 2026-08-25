@@ -60,7 +60,10 @@ export function analyzeParagraph(plain, raw = plain) {
   const last = ss[ss.length - 1];
   const mean = lens.reduce((a, b) => a + b, 0) / (lens.length || 1);
   if (ss.length >= 3 && words(last) <= 8 && mean >= 14) flags.push(`KICKER "${last}"`);
-  if (/^\s*\*\*[^*\n]{2,40}\.\*\*\s/.test(raw) || (/^[A-Z][^.!?]{2,40}\.\s+[A-Z]/.test(plain) && words(plain.split(/[.!?]\s/)[0]) <= 6)) flags.push('LEADIN');
+  // A list item that opens with a bold phrase is a labelled step, not a
+  // lead-in; the tell is the label on a running paragraph.
+  const isListItem = /^\s*(?:[-*•]|\d+\.)\s/.test(raw);
+  if (!isListItem && (/^\s*\*\*[^*\n]{2,40}\.\*\*\s/.test(raw) || (/^[A-Z][^.!?]{2,40}\.\s+[A-Z]/.test(plain) && words(plain.split(/[.!?]\s/)[0]) <= 6))) flags.push('LEADIN');
   return { sentences: ss.length, words: words(plain), cv: c, flags };
 }
 

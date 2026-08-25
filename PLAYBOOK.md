@@ -427,8 +427,13 @@ inventions from early runs, and inversions such as a dropped *not*). On
 the first 18 it scored 4 of 12 and 2 of 6, near chance, in both
 framings. The counters, on all 24, refuse 8 of the 10 bad rewrites
 including every inversion, and hold 4 of the 14 good ones, each of which
-introduced a *not* while saying a metaphor plainly. So the model's
-verdict is printed in the note as advice and never decides. Run
+introduced a *not* while saying a metaphor plainly. So that question was dropped. A narrower one
+works: "does AFTER apply to a different who, what or where than BEFORE?"
+On first calibration it caught every swap in the set, with two false
+alarms, so it is part of the gate: a changed target refuses. On 32 pairs
+the gate as a whole (counters or target check) refuses 13 of 16 bad
+rewrites and accepts 10 of 16 good ones. The model's answer varies
+between runs; the counters do not. Keep both. Run
 `node tools/translate.mjs --calibrate-check` after changing either. The
 two inventions the counters miss are the ones with no tell: a plausible
 definition supplied from outside the paragraph. An opposite that is not

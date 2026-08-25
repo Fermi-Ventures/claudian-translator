@@ -25,7 +25,7 @@ They mean the text you just produced, or the passage they quote. Do not argue an
 3. Read `<file>.translation.md`. Every row is one sentence: its shape, the original, the rewrite, and a note.
    - Rows marked applied are already in `<file>.translated.md`.
    - Rows marked **(kept)** could not be rewritten without knowledge only the author has. Supply it yourself if you have it, then rewrite the sentence by hand under the rules in PLAYBOOK.md §6. Otherwise leave it and say so.
-   - Rows marked **(proposed, not applied) … REFUSED** are rewrites the gate refused: they added an obligation, dropped or added a negation, swapped a word for its opposite, kept a reason inside the rule, or grew far past the original. Never apply them as they stand. Fix the sentence by hand so it says exactly what the original said.
+   - Rows marked **(proposed, not applied) … REFUSED** are rewrites the gate refused: they added an obligation, dropped or added a negation, swapped a word for its opposite, changed who, what or where the sentence applies to, kept a reason inside the rule, or grew far past the original. Never apply them as they stand. Fix the sentence by hand so it says exactly what the original said.
    - Every applied row still deserves one read: the gate catches the marks of invention, not invention that leaves no mark. A rewrite that supplies a plausible definition from outside the paragraph passes the gate and is still wrong.
 4. Replace the document with `<file>.translated.md` plus your hand fixes. Run the translator once more. A clean second pass has zero applied rows.
 5. Report to the user in three lines: how many sentences, how many rewritten, and the kept sentences with what each needs.

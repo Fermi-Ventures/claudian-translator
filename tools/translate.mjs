@@ -68,13 +68,20 @@ const RULES = [
   'Reply with one JSON object and nothing else: {"shape": "<from the vocabulary>", "after": "<the rewritten sentence or sentences>", "dropped_reason": "<a reason moved out of the rule, or empty>", "keep": true|false, "note": "<one sentence: what changed, or what the author must supply>"}',
 ];
 
-// ---------- the fidelity check ----------
+// ---------- the target check: one narrow question a model answers reliably ----------
+// A broad "does the rewrite mean the same" question scored near chance on the
+// labelled pairs in two framings (4/12 · 2/6, 5/12 · 1/6) and was dropped.
+// This narrow question — did WHO, WHAT or WHERE change — scored 12 of 14 on
+// first calibration, catching every swap (children→adults, bathtub→near a
+// bathtub, out of reach→within reach, false→true, validator→parser,
+// database→cache) with two false alarms on good rewrites. A false alarm is a
+// held proposal; a missed swap is the toaster in the bathtub. So it is part
+// of the gate: target_changed refuses. The counters could not see any of
+// these swaps; that is why the model is asked at all.
 const CHECKER = [
-  'Two versions of one sentence from a document. BEFORE was written by an author inside a long conversation; AFTER is a translation for a reader who was not in it. You are the author. Read AFTER and answer one question: is this what I meant? SAME means you would sign it. CHANGED means you would say "I did not say that".',
-  'A translation MUST say things BEFORE only implied. That is its job. So the following are SAME: a metaphor or coined phrase replaced by the plain claim it stood for, when the paragraph and the sentence support that reading; an implied instruction made explicit ("X is a backlog item in disguise" becomes "file X as a backlog item"); a person named in place of an abstraction; a long sentence split; a reason moved out and listed under DROPPED REASON; a general word in place of a jargon word with the same reach ("change" for "migration" when the paragraph does not depend on the difference); fewer words with nothing false added.',
-  'CHANGED means a reader following AFTER would do something different from a reader who understood BEFORE: a new obligation or prohibition on someone (BEFORE described, AFTER commands something BEFORE never asked for); an actor, mechanism, cause, frequency or object that the author could not have meant from the sentence and its paragraph; scope narrowed or widened; a hedge or a "typically" added; a stronger or weaker duty; a reason deleted without being listed under DROPPED REASON.',
-  'Do not refuse a translation for being more concrete than the original. Refuse it for being concrete about the WRONG thing. If you are unsure, ask which reading the paragraph supports; if the paragraph supports AFTER, answer SAME.',
-  'Reply with one JSON object and nothing else: {"same": true|false, "changed": "<what a reader of AFTER would do or believe that a reader of BEFORE would not, or empty>"}',
+  'Two versions of one sentence. Answer ONE narrow question and nothing else: does AFTER apply to a different WHO, WHAT, or WHERE than BEFORE? That is: a different person or group the sentence is about, a different object it acts on, a different place or condition it holds in, or a different value it names (true/false, on/off, before/after, reach/not reach).',
+  'Do NOT judge style, length, tone, whether a metaphor was explained, whether a reason was moved, or whether the sentence was split. A synonym for the same thing (hit/strike, use/operate) is the SAME target. A metaphor replaced by the plain thing it stood for is the SAME target. A person named in place of an abstraction that stood for them is the SAME target.',
+  'Reply with one JSON object and nothing else: {"target_changed": true|false, "what": "<the swap, e.g. children → adults, or empty>"}',
 ];
 
 // ---------- fidelity counters: the gate on a rewrite ----------
@@ -162,19 +169,22 @@ if (args.includes('--calibrate-check')) {
   const t0 = Date.now();
   // --no-check: counters only, no model calls (seconds, free).
   const res = CHECK ? await pool(set, c => ask(REWRITE, [...CHECKER, '', 'THE PARAGRAPH:', paraOf(c.before), '', 'BEFORE:', c.before, '', 'AFTER:', c.after, '', 'DROPPED REASON:', c.dropped || '(none)'].join('\n'))) : set.map(() => null);
-  let tp = 0, fp = 0, tn = 0, fn = 0, ctp = 0, cfp = 0, ctn = 0, cfn = 0;
-  console.log(`# translate --calibrate-check · model ${REWRITE} (advisory) · counters (the gate) · ${set.length} labelled pairs\n`);
+  let tp = 0, fp = 0, tn = 0, fn = 0, ctp = 0, cfp = 0, ctn = 0, cfn = 0, gtp = 0, gfp = 0, gtn = 0, gfn = 0;
+  console.log(`# translate --calibrate-check · target check: ${CHECK ? REWRITE : 'off'} · counters · gate = counters OR target check · ${set.length} labelled pairs\n`);
   set.forEach((c, i) => {
-    const r = res[i]; const got = r ? !!r.same : null;
+    const r = res[i]; const got = r ? !r.target_changed : null;
     const mark = got === null ? '??' : got === c.same ? 'ok' : (c.same ? 'REFUSED-GOOD' : 'PASSED-BAD');
     if (got === true && c.same) tp++; else if (got === true && !c.same) fp++; else if (got === false && !c.same) tn++; else if (got === false && c.same) fn++;
     const fc = fidelityCounters(c.before, c.after); const cgot = fc.length === 0;
     const cmark = cgot === c.same ? 'ok' : (c.same ? 'REFUSED-GOOD' : 'PASSED-BAD');
     if (cgot && c.same) ctp++; else if (cgot && !c.same) cfp++; else if (!cgot && !c.same) ctn++; else cfn++;
-    console.log(`model ${mark.padEnd(13)} counters ${cmark.padEnd(13)} same=${c.same}  ${JSON.stringify(c.after.slice(0, 80))}\n              model: ${r ? (r.changed || '(same)') : 'unparsed'}\n              counters: ${fc.join('; ') || '(same)'}`);
+    const ggot = cgot && (got === null ? true : got);
+    if (ggot && c.same) gtp++; else if (ggot && !c.same) gfp++; else if (!ggot && !c.same) gtn++; else gfn++;
+    console.log(`target ${mark.padEnd(13)} counters ${cmark.padEnd(13)} same=${c.same}  ${JSON.stringify(c.after.slice(0, 80))}\n              target: ${r ? (r.what || '(same)') : (CHECK ? 'unparsed' : 'off')}\n              counters: ${fc.join('; ') || '(same)'}`);
   });
-  console.log(`\n## model (advisory) · accepted-good ${tp} · refused-good ${fn} · refused-bad ${tn} · passed-bad ${fp}`);
-  console.log(`## counters (the gate) · accepted-good ${ctp} · refused-good ${cfn} · refused-bad ${ctn} · passed-bad ${cfp} · ${((Date.now() - t0) / 1000).toFixed(0)}s wall`);
+  if (CHECK) console.log(`\n## target check (${REWRITE}) · accepted-good ${tp} · refused-good ${fn} · refused-bad ${tn} · passed-bad ${fp}`);
+  console.log(`## counters · accepted-good ${ctp} · refused-good ${cfn} · refused-bad ${ctn} · passed-bad ${cfp}`);
+  console.log(`## gate (either refuses) · accepted-good ${gtp} · refused-good ${gfn} · refused-bad ${gtn} · passed-bad ${gfp} · ${((Date.now() - t0) / 1000).toFixed(0)}s wall`);
   process.exit(0);
 }
 
@@ -259,10 +269,11 @@ flagged.forEach((x, k) => {
   const c = checkOf.get(k);
   const after = r.after + (r.dropped_reason ? ` *(reason for the note: ${r.dropped_reason})*` : '');
   const gate = fidelityCounters(x.s, r.after);
-  const advisory = CHECK ? (c ? (c.same ? 'model check: same' : `model check (advisory): ${c.changed}`) : 'model check: no answer') : '';
+  if (CHECK) { if (!c) gate.push('target check returned nothing'); else if (c.target_changed) gate.push(`target changed: ${c.what || 'unnamed'}`); }
+  const advisory = CHECK && c && !c.target_changed ? 'target check: same' : '';
   if (gate.length) {
     proposed++;
-    rows.push([r.shape || '', x.s, `(proposed, not applied) ${after}`, `REFUSED: ${gate.join('; ')} · ${advisory}`]);
+    rows.push([r.shape || '', x.s, `(proposed, not applied) ${after}`, `REFUSED: ${gate.join('; ')}`]);
     return;
   }
   let done = false;

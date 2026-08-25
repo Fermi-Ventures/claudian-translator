@@ -22,5 +22,13 @@
   {"same":false,"src":"inversion: negation kept, object flipped (operator: never return false → do not return true)","before":"Never return false from the validator.","after":"Do not return true from the validator.","dropped":""},
   {"same":false,"src":"inversion: negation dropped and object flipped (operator: never return false → return true)","before":"Never return false from the validator.","after":"Return true from the validator.","dropped":""},
   {"same":true,"src":"control: negation kept, wording changed","before":"Do not operate the toaster in a bathtub.","after":"Do not use the toaster in a bathtub.","dropped":""},
-  {"same":true,"src":"control: two negations kept","before":"Do not ship a build that has not passed the smoke test.","after":"Do not ship a build that has not passed the smoke test, which takes two minutes.","dropped":""}
+  {"same":true,"src":"control: two negations kept","before":"Do not ship a build that has not passed the smoke test.","after":"Do not ship a build that has not passed the smoke test, which takes two minutes.","dropped":""},
+  {"same":false,"src":"swap: object, negation kept (operator, 29 Aug: never hit children → hit adults)","before":"Never hit children.","after":"Do not hit adults.","dropped":""},
+  {"same":false,"src":"swap: object, negation dropped (operator: never hit children → hit adults)","before":"Never hit children.","after":"Hit adults.","dropped":""},
+  {"same":true,"src":"control: synonym, same target","before":"Never hit children.","after":"Do not strike children.","dropped":""},
+  {"same":false,"src":"swap: place","before":"Do not operate the toaster in a bathtub.","after":"Do not operate the toaster near a bathtub.","dropped":""},
+  {"same":false,"src":"swap: condition","before":"Store the medicine out of reach of children.","after":"Store the medicine within reach of children.","dropped":""},
+  {"same":false,"src":"swap: object noun","before":"Never return false from the validator.","after":"Never return false from the parser.","dropped":""},
+  {"same":false,"src":"swap: object noun, no polarity word","before":"Only the on-call engineer may restart the database.","after":"Only the on-call engineer may restart the cache.","dropped":""},
+  {"same":true,"src":"control: a clause added, same target","before":"Do not ship a build that has not passed the smoke test.","after":"Do not ship a build that has not passed the smoke test, which takes two minutes.","dropped":""}
 ]

@@ -4,7 +4,7 @@ Claudian Translator converts Claude prose to text intended for humans.
 
 "Claudian" is prose written for the conversation that produced it. It reads fluently to the people who were there and stops everyone else: a coined phrase used as if it had been defined, a metaphor that carries the meaning, a reason folded into a rule, three obligations welded into one sentence, bullets rendered horizontally, an abstraction doing a person's job. A page of it has a shape too. Paragraphs all the same length, each opening with a bold label and closing on a short punchline, read as machine-made before a word is read.
 
-The translator works at both levels. It reshapes the paragraphs, then finds the sentences and rewrites each one for a reader who was not in the room. Every rewrite passes a gate that refuses the marks of invention, and the result comes back for a person to accept. Its scope is text. Any container the text lives in is the job of the Claude session that runs it.
+The translator works at both levels. It reshapes the paragraphs, then finds the sentences and rewrites each one for a reader who was not in the room. Every rewrite passes a gate that refuses the marks of invention. Claude reads the result, settles what it can, and tells you what changed. Its scope is text. Any container the text lives in is the job of the Claude session that runs it.
 
 ## What this does
 
@@ -21,7 +21,7 @@ Nobody marks the sentences. The translator finds them. Below is one run of `node
 | run-on sentence: 57 words, one condition, three obligations | If an attribute's legal next value depends on its current value and it meets the threshold below, it is a state machine: it belongs to a named machine definition from the first migration in which it qualifies, and a nested or parallel lifecycle is expressed in the definition, never as a loop or branch in an executor. | **Proposed, held for a person.** If an attribute's legal next value depends on its current value and it meets the threshold below, it is a state machine.<br><br>It must belong to a named machine definition, starting from the first migration in which it qualifies.<br><br>Any nested or parallel lifecycle must be expressed in that definition, not written as loop or branch logic in the code that runs it.<br><br>*Held: the split added a "must" the original did not have. Accept it or change one word.* |
 | coined noun | The forcing function is the machine census. | **Kept, with a question.** *The author must supply what "the machine census" is: a script, a CI job, a tool. The paragraph never says.* |
 
-Three outcomes, then. A rewrite that passed the gate is applied. A rewrite that shows a mark of invention is proposed and held. A sentence the translator cannot rewrite without knowledge only the author has is kept, with the question that would unlock it. The translator never blocks a document and never overrides the author. You read the table and answer the questions.
+Three outcomes, then. A rewrite that passed the gate is applied. A rewrite that shows a mark of invention is proposed and held. A sentence the translator cannot rewrite without knowledge only the author has is kept, with the question that would unlock it. The translator never blocks a document and never overrides the author. Claude reads the table. It answers the kept rows itself when it knows the answer, which it usually does, since it wrote the document, and it brings you the rest.
 
 At the paragraph level the same run on a flat page (eleven paragraphs of about a hundred words each, every one flagged) moved breaks so that eleven paragraphs became thirteen of clearly different lengths, with the words checked identical, and reshaped nine of the twelve it then flagged, dropping the bold labels and the punchlines, without introducing a single dash or semicolon. The page came out with no document-level flag.
 
@@ -47,7 +47,7 @@ By hand: `git clone` the repo, then `node cli.mjs install --into <your project>`
 - *"Claude, that sounds Claudian."*
 - *"Claude, produce user documentation for my engineers. Estimate token consumption to remove Claudian."*
 
-The first runs the translator on the document Claude just wrote. The second runs it on the passage you point at, or on Claude's last answer if you point at nothing, and shows you the before and after. The third prints sentences, calls, dollars and minutes before anything is spent.
+The first runs the translator on the document Claude just wrote and hands you the finished document. The second runs it on the passage you point at, or on Claude's last answer if you point at nothing, and shows you the before and after. The third prints sentences, calls, dollars and minutes before anything is spent. In each case you get a sentence or two on what changed and, when the translator needed something only you know, one question. You never read a table unless you ask to.
 
 ### What a run does
 
@@ -61,12 +61,12 @@ The first runs the translator on the document Claude just wrote. The second runs
 
 Every call goes through a pool with a requests-per-minute cap (`--rpm`, default 40), a concurrency limit (`--jobs`, default 8), three attempts with backoff, and a pause when a response looks rate-limited. The summary line reports calls, retries and pauses. `--no-structure` skips steps 2 and 3. `--by paragraph` batches steps 5 and 6 by paragraph, which halves the calls at a small cost measured in `PLAYBOOK.md`.
 
-### What you get back
+### What Claude works from
 
-Three files sit next to your document.
+Three files sit next to the document. They are Claude's working material. You see the document and a short report, and you can ask for any of them.
 
 - `<doc>.translated.md` is the document with everything that passed the gate applied.
-- `<doc>.translation.md` is the story: what happened to the paragraphs, then a table of every flagged sentence with its shape, the original, the rewrite and a note. Rows marked **kept** need something only the author knows, and the note says what. Rows marked **proposed, not applied** are rewrites the gate refused, and the note names why. They are never applied without a person.
+- `<doc>.translation.md` is the story: what happened to the paragraphs, then a table of every flagged sentence with its shape, the original, the rewrite and a note. Rows marked **kept** need something the translator did not have, and the note says what. Claude supplies it when it can. Rows marked **proposed, not applied** are rewrites the gate refused, and the note names why. Claude fixes those by hand or leaves the sentence as it was. Neither is applied by the tool.
 - `<doc>.translation.json` is the same as pairs, for a program or a Claude session: for each, its `level`, its `status`, `before` exactly as it sat in the file, `after`, a word-level `diff` in `[-old-]{+new+}` notation, and the note.
 
 ### When the text lives inside something else
@@ -97,13 +97,13 @@ flowchart TB
     F --> W --> C
   end
   C --> O["The document, rewrites applied\nplus a short table of what changed and what was held, with before, after and diff"]
-  O --> H["A person reads the table\nmost rows are done; the few held rows each carry their question"]
+  O --> H["Claude reads the table, settles what it can, tells you what changed\nand asks the one question it cannot answer alone, if there is one"]
   O -. "when the text came out of Word, HTML or code" .-> X["The Claude session patches the pairs back into the container"]
   F -. "each phrase found becomes a list entry" .-> V
   H -. "a send-back becomes a list entry" .-> V
 ```
 
-Two halves, two paragraph phases between them, one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. The paragraph phases fix the shape of the page under gates that cannot invent. The sentence phases read for meaning and rewrite, and the gate refuses the marks of invention. What reaches a person is a finished document and a short table. On the regression text, sixteen of twenty-one rows were done when the run ended and five carried a question. Reading those five is the human's whole part. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration files are the one store you keep.
+Two halves, two paragraph phases between them, one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. The paragraph phases fix the shape of the page under gates that cannot invent. The sentence phases read for meaning and rewrite, and the gate refuses the marks of invention. What reaches you is a finished document and a sentence or two on what changed. The table is Claude's to read. On the regression text, sixteen of twenty-one rows were done when the run ended and five carried a question, and Claude can answer most of those itself, since it wrote the text. What it cannot answer, it asks. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration files are the one store you keep.
 
 ## Analysis
 

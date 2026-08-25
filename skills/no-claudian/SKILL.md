@@ -24,12 +24,12 @@ They mean the text you just produced, or the passage they quote. Do not argue an
    `${CLAUDE_PLUGIN_ROOT}` is the repo root: the plugin root when installed as a plugin, or the path `node cli.mjs install` printed. If Vale or the packs are missing, run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs install` first.
 3. Read `<file>.translation.md`. Every row is one sentence: its shape, the original, the rewrite, and a note.
    - Rows marked applied are already in `<file>.translated.md`.
-   - Rows marked **(kept)** could not be rewritten without knowledge only the author has. Supply it yourself if you have it, then rewrite the sentence by hand under the rules in PLAYBOOK.md §6. Otherwise leave it and say so.
+   - Rows marked **(kept)** could not be rewritten without knowledge the translator did not have. You usually have it: you wrote the document, or the conversation holds it. Supply it and rewrite the sentence by hand under the rules in PLAYBOOK.md §6. Ask the user only for what you cannot know, one question at a time, and never hand them the table to sort out.
    - Rows marked **(proposed, not applied) … REFUSED** are rewrites the gate refused: they added an obligation, dropped or added a negation, swapped a word for its opposite, changed who, what or where the sentence applies to, kept a reason inside the rule, or grew far past the original. Never apply them as they stand. Fix the sentence by hand so it says exactly what the original said.
    - Every applied row still deserves one read: the gate catches the marks of invention, not invention that leaves no mark. A rewrite that supplies a plausible definition from outside the paragraph passes the gate and is still wrong.
 4. Replace the document with `<file>.translated.md` plus your hand fixes. Run the translator once more. A clean second pass has zero applied rows.
    Then run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs paragraphs <file>` for the shape of the whole: paragraphs of one length, a bold label opening every paragraph, a short kicker closing every paragraph, lists of three everywhere. These are what a reader senses as "this is AI" before reading a word. Vary the paragraph lengths, drop the labels, let a paragraph end on its longest sentence.
-5. Report to the user in three lines: how many sentences, how many rewritten, and the kept sentences with what each needs.
+5. Hand the user the finished document. Report in a sentence or two what changed (how many sentences, the shapes that recurred) and ask the one question you could not settle, if there is one. The table and the JSON are yours to read, not theirs. Show them only if asked.
 
 ## When the text lives inside something else
 

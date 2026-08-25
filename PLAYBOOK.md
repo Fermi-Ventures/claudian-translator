@@ -517,3 +517,18 @@ when a call looks rate-limited (a 429, "overloaded", "too many
 requests"). The run's summary line reports calls, retries and pauses.
 Raise `--rpm` and `--jobs` together when your account's limit allows it.
 The CLI hides the limit, so the summary line is how you find it.
+
+**Formatting and file types.** The translator reads markdown or plain
+text. Phase 1 is given each paragraph exactly as it sits in the file, is
+told to keep every mark on the words it marks and never to add a heading,
+a list or a label, and is refused if the count of links, code spans, bold
+or italic runs, footnote marks, headings or list markers differs before
+and after (the bold of a lead-in label being dropped is the one allowed
+change). Phase 0 changes blank lines only. The sentence phases match the
+original sentence verbatim before writing anything, so a sentence with
+inline formatting is left in place and shown in the table as not
+applied. A Word or Google document is outside the tool: convert to
+markdown first (pandoc does it), run the translator, and review the
+round trip. The conversion loses styles the translator never
+sees. Nothing here decides how a heading should look. That stays with
+the author and the document's own conventions.

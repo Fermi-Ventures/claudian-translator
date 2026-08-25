@@ -153,8 +153,19 @@ const STRUCTURE_RULES = [
   '6. A closer that restates the paragraph ("In short, …") is dropped. A signpost that announces structure ("There are three reasons.") is dropped if the structure is visible without it.',
   '7. Do not change the order of claims unless a device forced an order. Do not change who, what or where any sentence applies to. Do not change the register. Do not make it longer.',
   '8. Never join sentences with a semicolon, a dash, or ", and" to vary length; a joined sentence is a new tell and will be flagged by the next check. Vary length by moving a clause into its own short sentence, or by letting one sentence carry two related claims in plain syntax. If the counters flagged nothing you can fix without a join, return the paragraph unchanged and say so.',
-  'Reply with one JSON object and nothing else: {"after": "<the restructured paragraph>", "note": "<one sentence: which devices went and how>"}',
+  '9. The paragraph is given exactly as it sits in its file, formatting included. Keep every mark on the words it marks: links, code spans, bold, italics, footnote references. Never add a heading, a list, a label or any new formatting; you are changing sentences, not the document\'s structure or its author\'s conventions. Return the paragraph in the same syntax it arrived in.',
+  'Reply with one JSON object and nothing else: {"after": "<the restructured paragraph, same syntax>", "note": "<one sentence: which devices went and how>"}',
 ];
+// Formatting is not content, but losing it is a change: the counts of links,
+// code spans, bold and italic runs and footnote marks must match before and
+// after, or the paragraph is refused.
+function markupCounters(before, after) {
+  const count = (s, re) => (s.match(re) || []).length;
+  const marks = [['links', /\]\(/g], ['code spans', /`/g], ['bold runs', /\*\*/g], ['footnote marks', /\[\^/g], ['headings', /^#+ /gm], ['list markers', /^\s*(?:[-*•]|\d+\.)\s/gm]];
+  const f = [];
+  for (const [name, re] of marks) { const b = count(before, re), a = count(after, re); if (a !== b) f.push(`${name} changed: ${b} → ${a}`); }
+  return f;
+}
 
 // ---------- counters (the deterministic half, no lists) ----------
 const OBLIG = /\b(must|shall|never|always|only|is required|are required|is announced|is expressed|belongs to|counts as|is counted)\b/gi;
@@ -332,12 +343,15 @@ if (STRUCTURE && !ESTIMATE) {
   const { rows } = analyzeText(working);
   const flaggedParas = rows.filter(r => r.flags.length && r.sentences >= 2);
   console.error(`# structure · ${rows.length} paragraphs · ${flaggedParas.length} flagged by the counters`);
-  const outs = await pool(flaggedParas, r => ask(REWRITE, [...STRUCTURE_RULES, '', 'WHAT THE COUNTERS FOUND:', r.flags.join('; '), '', 'THE PARAGRAPH:', r.plain].join('\n')));
+  const outs = await pool(flaggedParas, r => ask(REWRITE, [...STRUCTURE_RULES, '', 'WHAT THE COUNTERS FOUND:', r.flags.join('; '), '', 'THE PARAGRAPH, exactly as it sits in the file:', r.raw].join('\n')));
   const checks = await pool(flaggedParas, (r, i) => (outs[i] && outs[i].after) ? ask(REWRITE, [...CHECKER, '', 'BEFORE:', r.plain, '', 'AFTER:', outs[i].after, '', 'DROPPED REASON:', '(none)'].join('\n')) : null);
   flaggedParas.forEach((r, i) => {
     const o = outs[i];
     if (!o || !o.after) { paraRows.push([r.i, r.flags.join('; '), r.plain, '', 'no answer from the model']); return; }
-    const gate = fidelityCounters(r.plain, o.after);
+    // A lead-in label is itself a bold run; dropping it is the fix, so it is
+    // taken off the "before" before the marks are counted.
+    const rawForMarks = r.flags.includes('LEADIN') ? r.raw.replace(/^\s*\*\*[^*\n]{2,40}\.\*\*\s*/, '') : r.raw;
+    const gate = [...fidelityCounters(r.plain, o.after.replace(/[*_`>]/g, '')), ...markupCounters(rawForMarks, o.after)];
     const ratio = o.after.split(/\s+/).length / Math.max(1, r.words);
     if (ratio > 1.25) gate.push(`longer than the original (${ratio.toFixed(2)}x)`);
     if (ratio < 0.6) gate.push(`much shorter than the original (${ratio.toFixed(2)}x)`);

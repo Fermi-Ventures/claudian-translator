@@ -527,8 +527,13 @@ and after (the bold of a lead-in label being dropped is the one allowed
 change). Phase 0 changes blank lines only. The sentence phases match the
 original sentence verbatim before writing anything, so a sentence with
 inline formatting is left in place and shown in the table as not
-applied. A Word or Google document is outside the tool: convert to
-markdown first (pandoc does it), run the translator, and review the
-round trip. The conversion loses styles the translator never
-sees. Nothing here decides how a heading should look. That stays with
+applied. A Word or Google document goes through the session that
+runs the skill, which can see both sides: convert a copy with pandoc,
+run the translator, convert back with `--reference-doc` pointing at the
+original so its styles come through, then compare the marks in both
+files and re-apply anything the round trip dropped. Comments, tracked
+changes and complex layout do not survive pandoc. The skill carries the
+steps. Measured once: a page with a link, four code spans, six italic
+marks and six bold marks came back from Word with every mark intact,
+and went back into Word the same way. Nothing here decides how a heading should look. That stays with
 the author and the document's own conventions.

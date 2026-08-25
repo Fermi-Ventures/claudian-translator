@@ -107,6 +107,8 @@ function doctor() {
   log(`Vale:      ${vale ? `${vale} (${valeVersion(vale)})` : 'missing — node cli.mjs install'}`);
   log(`packs:     ${packsPresent() ? 'present' : 'missing — node cli.mjs install'}`);
   log(`model CLI: ${claudeAnswers() ? 'claude -p answers' : 'no answer'}`);
+  const pd = run('pandoc', ['--version']);
+  log(`pandoc:    ${pd.status === 0 ? pd.stdout.split(/\r?\n/)[0] : 'missing — only needed for Word documents (winget install JohnMacFarlane.Pandoc / brew install pandoc)'}`);
   log(`node:      ${process.version}`);
   log(`repo:      ${ROOT}`);
 }

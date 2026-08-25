@@ -31,6 +31,17 @@ They mean the text you just produced, or the passage they quote. Do not argue an
    Then run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs paragraphs <file>` for the shape of the whole: paragraphs of one length, a bold label opening every paragraph, a short kicker closing every paragraph, lists of three everywhere. These are what a reader senses as "this is AI" before reading a word. Vary the paragraph lengths, drop the labels, let a paragraph end on its longest sentence.
 5. Report to the user in three lines: how many sentences, how many rewritten, and the kept sentences with what each needs.
 
+## When the document is a Word or Google document
+
+The translator reads markdown. You are the layer that carries a `.docx` through it and back, and you can see both sides, so nothing has to be lost.
+
+1. Keep the original untouched. Convert a copy: `pandoc in.docx -t gfm --wrap=none -o in.md` (a Google document: download it as `.docx` first). If pandoc is missing, install it (`winget install JohnMacFarlane.Pandoc`, `brew install pandoc`, or the release binary) or ask the user to.
+2. Run the translator on `in.md` as usual and read `in.md.translation.md`.
+3. Rows marked *not applied (sentence not found verbatim)* are usually sentences with inline formatting. Apply those by hand in `in.md.translated.md`, keeping the marks on the words they mark.
+4. Convert back with the original's styles: `pandoc in.md.translated.md -o out.docx --reference-doc=in.docx`. The reference document supplies the fonts, heading styles and spacing; the markdown supplies the words.
+5. Compare before and after, the way only you can: list the headings, links, bold and italic runs, tables and images in `in.docx` and `out.docx` (`pandoc file.docx -t gfm` on each, then compare the marks) and re-apply anything the round trip dropped. Comments, tracked changes and complex layout do not survive pandoc; say so if the original had them.
+6. Hand the user `out.docx` and the translation table. Never overwrite `in.docx`.
+
 ## When the user asks to estimate token consumption
 
 Run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs estimate <file> --rate <r>` and show the table it prints. Use `--rate 0.3` for a first draft and say that the rate is an assumption. If the user wants a measured number, run the translator once for real and report the actual flagged count.

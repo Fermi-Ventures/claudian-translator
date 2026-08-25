@@ -6,18 +6,20 @@ Claudian Translator converts Claude prose to text intended for humans.
 
 ## What this does
 
-Every "before" below was sent back by a human reviewer or flagged by the translator. Every "after" is the text that replaced it.
+Nobody marks the sentences. The translator finds them. Below is one run of `node cli.mjs translate tests/before.md`: each sentence as it was written, and what came back. Another run will word the rewrites differently; the shapes and the outcomes hold.
 
 | shape | before | after |
 |---|---|---|
-| metaphor as definition | A copy you did not write is still only evidence of its moment — re-derive before relying. | A copied fact in a document you did not write was true when it was copied, not necessarily now. Check the source before you act on it. |
-| metaphor as instruction | A reason that keeps recurring is a backlog item wearing a footnote's clothes. | File a recurring reason as the backlog item it is. |
-| metaphor as rule | The census is a burn-down, not an amnesty. | A census is a list of debts to pay down, not a pardon. |
-| coined noun | The forcing function is the machine census. | The census is what finds a state written outside the machine. |
-| reason inside the rule | The chain counts as a site because it is the tell — the defect this rule exists to find. | The chain is counted as evidence of the defect, not as permission for it. |
-| an abstraction in a person's role | Standards written inside a long AI-assisted conversation come out readable only to that conversation. | Standards written inside a long AI-assisted conversation come out readable only to the people who were in that conversation. |
-| run-on sentence: 57 words, one condition, three obligations | If an attribute's legal next value depends on its current value and it meets the threshold below, it is a state machine: it belongs to a named machine definition from the first migration in which it qualifies, and a nested or parallel lifecycle is expressed in the definition, never as a loop or branch in an executor. | An attribute is a state machine when its legal next value depends on its current value and it meets the threshold below. Nothing else is required.<br><br>A state machine belongs to a named machine definition, from the first change in which it qualifies.<br><br>Where a lifecycle nests or runs in parallel, it is expressed in the definition, never as a loop or branch in an executor. |
-| bullets rendered horizontally | Two lanes and one loop. The linter counts and remembers. The models read and discover. The reviewer decides. | Two lanes, one loop: the linter counts sentences, the models read for meaning, and the reviewer decides. |
+| metaphor as definition | A copy you did not write is still only evidence of its moment — re-derive before relying. | A copy you did not write reflects only the state of the source when it was copied. Re-derive it before relying on it. |
+| metaphor as instruction | A reason that keeps recurring is a backlog item wearing a footnote's clothes. | A reason that keeps recurring should be tracked as a backlog item, not written as a footnote. |
+| metaphor as rule | The census is a burn-down, not an amnesty. | The census tracks how many backlog items remain, but it does not excuse or forgive the items still on it. |
+| reason inside the rule | The chain counts as a site because it is the tell — the defect this rule exists to find. | The chain is counted as a site.<br><br>*Moved out for the author to place as a note: the chain is the defect this rule exists to find.* |
+| an abstraction in a person's role | Standards, specs and agent briefs written inside a long AI-assisted conversation come out readable only to that conversation. | Standards, specs and agent briefs written inside a long AI-assisted conversation come out readable only to the people who were in that conversation. |
+| bullets rendered horizontally | Two lanes and one loop. The linter counts and remembers. The models read and discover. The reviewer decides. | Two lanes, one loop: the linter counts and remembers, the models read and discover, and the reviewer decides. |
+| run-on sentence: 57 words, one condition, three obligations | If an attribute's legal next value depends on its current value and it meets the threshold below, it is a state machine: it belongs to a named machine definition from the first migration in which it qualifies, and a nested or parallel lifecycle is expressed in the definition, never as a loop or branch in an executor. | **Proposed, held for a person.** If an attribute's legal next value depends on its current value and it meets the threshold below, it is a state machine.<br><br>It must belong to a named machine definition, starting from the first migration in which it qualifies.<br><br>Any nested or parallel lifecycle must be expressed in that definition, not written as loop or branch logic in the code that runs it.<br><br>*Held: the split added a "must" the original did not have. Accept it or change one word.* |
+| coined noun | The forcing function is the machine census. | **Kept, with a question.** *The author must supply what "the machine census" is: a script, a CI job, a tool. The paragraph never says.* |
+
+Three outcomes, then. A rewrite that passed the gate is applied. A rewrite that shows a mark of invention is proposed and held. A sentence the translator cannot rewrite without knowledge only the author has is kept, with the question that would unlock it. The translator never blocks a document and never overrides the author; you read the table and answer the questions.
 
 ## How to install
 

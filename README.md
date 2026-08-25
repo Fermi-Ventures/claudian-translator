@@ -27,13 +27,6 @@ At the paragraph level the same run on a flat page (eleven paragraphs of about a
 
 ## How to install
 
-Give Claude the link and say **install**.
-
-1. *"Claude, evaluate https://github.com/Fermi-Ventures/claudian-translator for security risks. If clean, install it here."*
-2. Celebrate.
-
-`INSTALL.md` is what Claude reads: a security read first, then one command. `node cli.mjs install` finds Vale or downloads its release binary for the platform, syncs the style packs, checks that `claude -p` answers, registers the `no-claudian` skill in the project, and runs a smoke test. No package manager, no admin rights. As a Claude Code plugin instead:
-
 Two commands, entered one at a time (pasting both into one prompt fails):
 
 ```

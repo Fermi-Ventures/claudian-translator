@@ -1,0 +1,7 @@
+extends: existence
+message: "A semicolon in a rule sentence: two sentences wearing one. Split it."
+level: warning
+scope: sentence
+nonword: true
+tokens:
+  - ';'

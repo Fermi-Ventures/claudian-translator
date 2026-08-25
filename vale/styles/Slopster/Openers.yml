@@ -1,0 +1,15 @@
+extends: existence
+message: "Reveal-shape tell: '%s' — the 'here's the hidden truth / what people get wrong' framing is an AI tell that survives rewording. State the thing directly instead of teasing it, and don't cast the reader as the one doing it wrong."
+level: warning
+ignorecase: true
+tokens:
+  - "isn't in the job description"
+  - "not in the job description"
+  - "what nobody tells you"
+  - "what no one tells you"
+  - "nobody tells you this"
+  - "the part (that )?(people|everyone) (skip|skips|miss|misses)"
+  - "what most people (get wrong|miss|overlook)"
+  - "the thing (nobody|no one) (does|tells|talks about)"
+  - "here's what (nobody|no one) (tells|knows)"
+  - "what everyone (gets wrong|misses)"

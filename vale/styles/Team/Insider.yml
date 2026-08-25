@@ -1,0 +1,41 @@
+extends: existence
+message: "'%s' is insider prose — a phrase from the argument, not from the rule. Say it plainly (the reviewer: 'claudian')."
+level: error
+scope: sentence
+ignorecase: true
+# Seeded from the reviewer's send-backs and the calibration set
+# (tests/claudian.calibration.json). Grows by finding, never by taste.
+# ADMISSION RULE (reviewer, 29 Aug: "the same word can be used literally in
+# one context and a metaphor in another"): a token is a PHRASE quoted from a
+# send-back with no literal sense elsewhere. A bare ordinary word never
+# enters at error — 'amnesty', 'load-bearing', 'burn-down' each fired on
+# literal use (an amnesty law, a load-bearing wall, a burn-down chart) and
+# moved to InsiderWord.yml at suggestion, with exceptions. Words with a
+# common literal sense in this domain (class, function, application, table,
+# index, key, thread, session) are NEVER listed; the model finder judges
+# them in context. Regression: vale tests/insider.literal-controls.md must
+# report zero Team.Insider hits.
+# nonword: every token carries its own boundary. Needed so a token can end
+# on the character AFTER the phrase ('the tell' followed by space or comma,
+# never by the hyphen of 'tell-tale') — RE2 has no lookahead, and without
+# nonword Vale appends a boundary that a trailing space cannot satisfy.
+# YAML: tokens are SINGLE-quoted so backslashes are literal. In double
+# quotes \b is the BACKSPACE escape and \w is an "unknown escape" that
+# aborts the whole run — and a run that aborts prints ZERO alerts, so a
+# filtered count reads as clean. Run vale once unfiltered after every edit.
+nonword: true
+tokens:
+  - '\bevidence of (?:a|its) moment\b'
+  - '\bthe tell(?:[ ,.;:)]|$)'
+  - '\bforcing function\b'
+  - '\bwearing (?:a |its |an )?\w+[''’]?s? clothes\b'
+  - '\b(?:a )?burn-down, not an amnesty\b'
+  - '\bis a burn-down\b'
+  - '\bload-bearing (?:sentence|clause|word|phrase|rule|assumption|metaphor|noun)\b'
+  - '\bcode-shaped\b'
+  - '\brender from data\b'
+  - '\bthe writer[''’]s rule\b'
+  - '\bthe reader[''’]s rule\b'
+  - '\bone defect, one standard\b'
+  - '\bwearing an apron\b'
+  - '\bin an apron\b'

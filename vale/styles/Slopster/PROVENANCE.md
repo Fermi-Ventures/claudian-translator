@@ -1,0 +1,1 @@
+Vendored from https://github.com/t0ddharris/slopster (MIT, see LICENSE) on 2026-08-29 (narrative clock), unmodified. The generic AI-tells lane: negation pivots, banned marketing phrases, jargon swaps, weak words, em-dash overuse, Orwell cliches. Ours (Fermi/) is the estate-insider lane; the two find different classes.

@@ -1,0 +1,20 @@
+extends: existence
+message: "'%s' carried a metaphor in a send-back. Literal use is fine — if this is the metaphor, say it plainly."
+level: suggestion
+scope: sentence
+ignorecase: true
+# Single ordinary words that appeared in a send-back as metaphor. They cannot
+# go in Insider.yml at error: each has a literal sense a rule may need. The
+# exceptions below are the literal uses seen so far; the model finder judges
+# the rest in context. Grows by finding, never by taste.
+exceptions:
+  - amnesty law
+  - tax amnesty
+  - load-bearing wall
+  - load-bearing structure
+  - burn-down chart
+  - burn-down rate
+tokens:
+  - "\\bamnesty\\b"
+  - "\\bload-bearing\\b"
+  - "\\bburn-down\\b"

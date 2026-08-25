@@ -1,0 +1,5 @@
+node_modules/
+# Vale: third-party packs are synced (vale sync), never vendored. Team and Slopster are ours.
+vale/styles/*
+!vale/styles/Team/
+!vale/styles/Slopster/

@@ -1,0 +1,12 @@
+extends: existence
+message: "'%s' — a rule says what to do or what will be refused; the reason belongs beside it, not in it (writing rule 2)."
+level: suggestion
+scope: sentence
+ignorecase: true
+tokens:
+  - because
+  - which is why
+  - this is why
+  - the point is
+  - the reason is
+  - exists to

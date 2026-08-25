@@ -1,0 +1,45 @@
+extends: existence
+message: "'%s' is a chatbot tell — a hedge, a filler opener, or correspondence pasted into a rule. Say the claim or delete the sentence."
+level: warning
+scope: sentence
+ignorecase: true
+# The MODEL-SPECIFIC and correspondence tells the public slop lists do not carry
+# (they target marketing and fiction). Sources, 29 Aug 2026: Wikipedia:Signs of
+# AI writing (WP:CERTAINLY "collaborative communication"; negative parallelism;
+# "it's important to note"); blogpros "biggest tells Claude wrote it" (the
+# transition rotation); Nous ANTI-SLOP tier 3 filler; PCWorld/Cherryleaf hedge
+# lists. Kept separate from Insider.yml: these are generic AI register; Insider
+# is the team's own argument-prose. Grows by finding.
+# YAML: every token is double-quoted — an unquoted regex containing ", " parses
+# as a flow mapping and silently disables the whole style (29 Aug, found by a
+# run that returned zero alerts on text known to contain hits).
+tokens:
+  - "it(?:'s| is) worth (?:noting|mentioning|remembering)"
+  - "it(?:'s| is) important to (?:note|remember|keep in mind|understand)"
+  - "it(?:'s| is) crucial to"
+  - "at its core"
+  - "the real question is"
+  - "here(?:'s| is) the thing"
+  - "the good news is"
+  - "this is where (?:it|things) (?:gets?|becomes?)"
+  - "when it comes to"
+  - "let(?:'s| us) (?:explore|dive|delve|unpack|break (?:this|it) down)"
+  - "\\bultimately,"
+  - "\\bgenuinely\\b"
+  - "\\bnuanced\\b"
+  - "multifaceted"
+  - "\\bnavigating the\\b"
+  - "in today(?:'s|s) (?:world|landscape|age)"
+  - "ever-evolving"
+  - "\\bcertainly[!,]"
+  - "you(?:'re| are) absolutely right"
+  - "great question"
+  - "i hope this helps"
+  - "let me know if"
+  - "would you like me to"
+  - "feel free to"
+  - "step by step"
+  - "to approach this systematically"
+  - "not (?:just|only) \\w+(?: \\w+){0,4}, but (?:also )?"
+  - "it(?:'s| is) not (?:about|just) \\w+(?: \\w+){0,4}[,;] it(?:'s| is)"
+  - "some (?:people|teams) \\w+(?: \\w+){0,6} while others"

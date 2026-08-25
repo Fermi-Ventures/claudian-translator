@@ -1,0 +1,14 @@
+extends: existence
+message: "'%s' puts an abstraction in a person's role. Name the person who reads, decides or remembers."
+level: warning
+scope: sentence
+ignorecase: true
+# reviewer, 29 Aug, on "come out readable only to that conversation":
+# "conversations don't read" — the last preposition's object cannot fill
+# the role the sentence gives it, the reader stalls, then repairs it. The
+# sentence is grammatical, so no form rule fires. Documents may SAY and
+# SHOW (conventional, not listed); only people read, decide, remember.
+# Grows by finding.
+tokens:
+  - "(?:readable|legible|visible|clear|obvious|intelligible|meaningful|opaque|known|familiar)(?: only)? to (?:that|the|this|a|an|its|our|one) (?:conversation|thread|session|transcript|chat|context|argument|diff|ledger|census|codebase|repo|repository|record|pipeline)s?\\b"
+  - "\\b(?:conversation|thread|session|transcript|ledger|diff|census|codebase|repo|repository|pipeline|standard|rule|charter)s? (?:knows|reads|remembers|forgets|decides|understands|believes|wants|expects|thinks|assumes|cares)\\b"

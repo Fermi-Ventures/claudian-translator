@@ -96,13 +96,14 @@ flowchart TB
     C["Gate\ncounters: obligation words, negations, polarity, reasons, length\nSonnet: a different who, what or where"]
     F --> W --> C
   end
-  C --> O["translated.md · translation.md · translation.json\napplied · kept · refused, each with before, after and diff"]
-  O --> H["The human, or the session that holds the container\naccepts the applied rows, answers the kept rows, fixes the refused rows, patches the pairs back"]
+  C --> O["The document, rewrites applied\nplus a short table of what changed and what was held, with before, after and diff"]
+  O --> H["A person reads the table\nmost rows are done; the few held rows each carry their question"]
+  O -. "when the text came out of Word, HTML or code" .-> X["The Claude session patches the pairs back into the container"]
   F -. "each phrase found becomes a list entry" .-> V
-  H -. "each send-back becomes a list entry" .-> V
+  H -. "a send-back becomes a list entry" .-> V
 ```
 
-Two halves, two paragraph phases between them, one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. The paragraph phases fix the shape of the page under gates that cannot invent. The sentence phases read for meaning and rewrite, and the gate refuses the marks of invention. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration files are the one store you keep.
+Two halves, two paragraph phases between them, one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. The paragraph phases fix the shape of the page under gates that cannot invent. The sentence phases read for meaning and rewrite, and the gate refuses the marks of invention. What reaches a person is a finished document and a short table. On the regression text, sixteen of twenty-one rows were done when the run ended and five carried a question. Reading those five is the human's whole part. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration files are the one store you keep.
 
 ## Analysis
 

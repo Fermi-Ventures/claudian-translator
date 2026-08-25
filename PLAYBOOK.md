@@ -497,7 +497,7 @@ with the counts as evidence, then the same gate as a sentence (the
 counters and the target check) plus a length band of 0.6 to 1.25 times
 the original. The first version of its rules produced the wrong fix: told
 UNIFORM or TRIAD, the model joined sentences with dashes and semicolons,
-which is the tell the sentence lane removes, and it regrouped real
+which is the mark the sentence lane removes, and it regrouped real
 three-item lists with "along with". The rules now forbid the join and
 say a real list of three stays. On the same page the second run reshaped
 nine of twelve flagged paragraphs, refused three (a dropped negation, a
@@ -515,5 +515,5 @@ started per minute (default 40), `--jobs` in flight (default 8), three
 attempts per call with backoff, and a fifteen-second pause for everything
 when a call looks rate-limited (a 429, "overloaded", "too many
 requests"). The run's summary line reports calls, retries and pauses.
-Raise `--rpm` and `--jobs` together when your account's limit allows it;
-the CLI hides the limit, so the summary line is how you find it.
+Raise `--rpm` and `--jobs` together when your account's limit allows it.
+The CLI hides the limit, so the summary line is how you find it.

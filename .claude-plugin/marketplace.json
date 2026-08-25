@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "claudian-translator",
-      "source": { "source": "local", "path": "./" },
+      "source": "./",
       "description": "Converts Claude prose to text intended for humans. Skill: no-claudian.",
       "category": "Writing"
     }

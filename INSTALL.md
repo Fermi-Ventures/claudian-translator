@@ -17,8 +17,13 @@ node tools/claudian-translator/cli.mjs install --into .
 
 Or install it as a Claude Code plugin, which registers the skill without a copy:
 
+Two separate prompts; pasting both into one fails:
+
 ```
 /plugin marketplace add Fermi-Ventures/claudian-translator
+```
+
+```
 /plugin install claudian-translator@claudian-translator
 ```
 

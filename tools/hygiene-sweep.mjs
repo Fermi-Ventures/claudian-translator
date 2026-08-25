@@ -75,7 +75,7 @@ function judge(sentence) {
     'THE SENTENCE:',
     sentence,
   ].join('\n');
-  const r = spawnSync('claude', ['-p', '--model', LLM, '--setting-sources', ''], {
+  const r = spawnSync('claude', ['-p', '--model', LLM, '--setting-sources', '', '--tools', ''], {
     cwd, encoding: 'utf8', input: prompt, stdio: ['pipe', 'pipe', 'pipe'], timeout: 120_000,
   });
   if (r.status !== 0) return null;

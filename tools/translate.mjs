@@ -195,7 +195,7 @@ async function take() {
 }
 function askOnce(model, prompt, array) {
   return new Promise((resolve) => {
-    const p = spawn('claude', ['-p', '--model', model, '--setting-sources', ''], { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+    const p = spawn('claude', ['-p', '--model', model, '--setting-sources', '', '--tools', ''], { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '', err = '';
     const timer = setTimeout(() => { p.kill(); resolve({ ok: false, why: 'timeout' }); }, 180_000);
     p.stdout.on('data', d => { out += d; });

@@ -39,7 +39,7 @@ const RUBRIC = [
 function classify(sentence, context = '') {
   return new Promise((resolve) => {
     const prompt = [...RUBRIC, '', ...(context ? ['THE PARAGRAPH IT SITS IN (context only — judge the sentence, and use this to resolve pronouns and back-references):', context, ''] : []), 'THE SENTENCE:', sentence].join('\n');
-    const p = spawn('claude', ['-p', '--model', MODEL, '--setting-sources', ''], { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+    const p = spawn('claude', ['-p', '--model', MODEL, '--setting-sources', '', '--tools', ''], { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
     const timer = setTimeout(() => { p.kill(); resolve(null); }, 120_000);
     p.stdout.on('data', d => { out += d; });

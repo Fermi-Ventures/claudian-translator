@@ -66,7 +66,7 @@ mkdirSync(cwd, { recursive: true });
 // No shell: an empty argument survives only when nothing re-quotes it. The
 // prompt goes over stdin so a long standard never meets the command-line cap.
 function run(m, input) {
-  const r = spawnSync('claude', ['-p', '--model', m, '--setting-sources', ''], {
+  const r = spawnSync('claude', ['-p', '--model', m, '--setting-sources', '', '--tools', ''], {
     cwd, encoding: 'utf8', input, stdio: ['pipe', 'pipe', 'pipe'], timeout: 240_000,
   });
   if (r.status !== 0) { console.error(r.stderr || `claude exited ${r.status}`); process.exit(1); }

@@ -9,6 +9,7 @@
 //   node cli.mjs calibrate [--check]                        the finder's or the gate's confusion matrix
 // Also reachable as `npx github:Fermi-Ventures/claudian-translator <command>` for anyone with git access to the repo.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,16 +33,31 @@ function valePath() {
   return null;
 }
 function valeVersion(p) { const r = run(p, ['--version']); return r.status === 0 ? r.stdout.trim() : null; }
+// Pinned, verified (review finding 1, 25 Aug): the version is fixed here, not
+// "latest", and the archive's sha256 must match the release's checksums file
+// before anything is extracted. --vale-version overrides the pin.
+const VALE_VERSION = opt('--vale-version', '3.18.0');
 async function fetchVale() {
   const os = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform];
   const arch = { x64: '64-bit', arm64: 'arm64' }[process.arch];
   if (!os || !arch) throw new Error(`no Vale release for ${process.platform}/${process.arch}; install Vale by hand from https://github.com/vale-cli/vale/releases`);
-  const rel = await (await fetch('https://api.github.com/repos/vale-cli/vale/releases/latest', { headers: { 'user-agent': 'claudian-translator' } })).json();
+  if (!/^\d+\.\d+\.\d+$/.test(VALE_VERSION)) throw new Error(`bad --vale-version ${VALE_VERSION}`);
   const ext = os === 'Windows' ? '.zip' : '.tar.gz';
-  const asset = (rel.assets || []).find(a => a.name.endsWith(`_${os}_${arch}${ext}`));
-  if (!asset) throw new Error(`no asset for ${os} ${arch} in ${rel.tag_name}`);
-  log(`  downloading ${asset.name} (${rel.tag_name})`);
-  const buf = Buffer.from(await (await fetch(asset.browser_download_url)).arrayBuffer());
+  const name = `vale_${VALE_VERSION}_${os}_${arch}${ext}`;
+  if (!/^[A-Za-z0-9._-]+$/.test(name)) throw new Error(`refusing asset name ${name}`);
+  const base = `https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/`;
+  log(`  downloading ${name} (pinned v${VALE_VERSION})`);
+  const res = await fetch(base + name);
+  if (!res.ok) throw new Error(`download failed: ${res.status} for ${base + name}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  const sums = await (await fetch(`${base}vale_${VALE_VERSION}_checksums.txt`)).text();
+  const line = sums.split(/\r?\n/).find(l => l.trim().endsWith(' ' + name) || l.trim().endsWith('*' + name));
+  if (!line) throw new Error(`no checksum for ${name} in the release's checksums file`);
+  const expected = line.trim().split(/\s+/)[0].toLowerCase();
+  const actual = createHash('sha256').update(buf).digest('hex');
+  if (actual !== expected) throw new Error(`sha256 mismatch for ${name}: expected ${expected}, got ${actual} — refusing to extract`);
+  log(`  sha256 verified against ${`vale_${VALE_VERSION}_checksums.txt`}`);
+  const asset = { name };
   mkdirSync(BIN, { recursive: true });
   // The archive goes into .bin/ and tar runs there with a relative name: on
   // Windows, bsdtar reads an absolute "C:\..." path as a remote host.
@@ -72,7 +88,7 @@ function packsPresent() {
 
 // ---------- the model CLI ----------
 function claudeAnswers() {
-  const r = spawnSync('claude', ['-p', '--model', 'haiku', '--setting-sources', ''], { input: 'Reply with exactly the word ok and nothing else.', encoding: 'utf8', timeout: 90_000, cwd: tmpdir() });
+  const r = spawnSync('claude', ['-p', '--model', 'haiku', '--setting-sources', '', '--tools', ''], { input: 'Reply with exactly the word ok and nothing else.', encoding: 'utf8', timeout: 90_000, cwd: tmpdir() });
   return r.status === 0 && /\bok\b/i.test(r.stdout || '');
 }
 

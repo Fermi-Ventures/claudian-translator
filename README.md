@@ -6,7 +6,7 @@ Claudian Translator converts Claude prose to text intended for humans.
 
 ## What this does
 
-Nobody marks the sentences. The translator finds them. Below is one run of `node cli.mjs translate tests/before.md`: each sentence as it was written, and what came back. Another run will word the rewrites differently; the shapes and the outcomes hold.
+Nobody marks the sentences. The translator finds them. Below is one run of `node cli.mjs translate tests/before.md`: each sentence as it was written, and what came back. Another run will word the rewrites differently. The shapes and the outcomes hold.
 
 | shape | before | after |
 |---|---|---|

@@ -501,7 +501,7 @@ which is the mark the sentence lane removes, and it regrouped real
 three-item lists with "along with". The rules now forbid the join and
 say a real list of three stays. On the same page the second run reshaped
 nine of twelve flagged paragraphs, refused three (a dropped negation, a
-"because" introduced twice), left the two real lists alone, introduced
+reason word introduced twice), left the two real lists alone, introduced
 no dash and no semicolon, and the output carried no document-level flag.
 Then the sentence phases ran on the reshaped text.
 

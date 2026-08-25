@@ -5,6 +5,7 @@
 //   node cli.mjs lint <file.md>                             Vale with this repo's config
 //   node cli.mjs translate <file.md> [translate.mjs flags]  find → rewrite → gate → apply
 //   node cli.mjs estimate <file.md> [--rate r]              no model calls: sentences, tokens, dollars, minutes
+//   node cli.mjs paragraphs <file.md>                       paragraph hygiene: uniform rhythm, lead-in labels, kickers, triads, closers (free)
 //   node cli.mjs calibrate [--check]                        the finder's or the gate's confusion matrix
 // Also reachable as `npx github:Fermi-Ventures/claudian-translator <command>` for anyone with git access to the repo.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
@@ -127,6 +128,7 @@ switch (cmd) {
   case 'lint': lint(rest[0]); break;
   case 'translate': passthrough('translate.mjs', rest); break;
   case 'estimate': passthrough('translate.mjs', [rest[0], '--estimate', ...rest.slice(1)]); break;
+  case 'paragraphs': passthrough('paragraphs.mjs', rest); break;
   case 'calibrate': passthrough(has('--check') ? 'translate.mjs' : 'claudian.mjs', has('--check') ? ['--calibrate-check'] : ['--calibrate', ...rest]); break;
   default:
     log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 9).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));

@@ -28,6 +28,7 @@ They mean the text you just produced, or the passage they quote. Do not argue an
    - Rows marked **(proposed, not applied) … REFUSED** are rewrites the gate refused: they added an obligation, dropped or added a negation, swapped a word for its opposite, changed who, what or where the sentence applies to, kept a reason inside the rule, or grew far past the original. Never apply them as they stand. Fix the sentence by hand so it says exactly what the original said.
    - Every applied row still deserves one read: the gate catches the marks of invention, not invention that leaves no mark. A rewrite that supplies a plausible definition from outside the paragraph passes the gate and is still wrong.
 4. Replace the document with `<file>.translated.md` plus your hand fixes. Run the translator once more. A clean second pass has zero applied rows.
+   Then run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs paragraphs <file>` for the shape of the whole: paragraphs of one length, a bold label opening every paragraph, a short kicker closing every paragraph, lists of three everywhere. These are what a reader senses as "this is AI" before reading a word. Vary the paragraph lengths, drop the labels, let a paragraph end on its longest sentence.
 5. Report to the user in three lines: how many sentences, how many rewritten, and the kept sentences with what each needs.
 
 ## When the user asks to estimate token consumption

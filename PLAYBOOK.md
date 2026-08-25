@@ -354,8 +354,11 @@ costs more than a year of the model spend.
    without the bullets: *"Two lanes and one loop. The linter counts and
    remembers. The reviewer decides."* The readability indices and the
    sentence-length rule reward this shape, so text edited to satisfy them
-   drifts into it. Give each sentence a subject, a verb and an object, or
-   make the list a real list with a sentence of narrative around it. The
+   drifts into it. Do not expand it either: the run of fragments is a
+   hook, and a rewrite that turns it into a paragraph loses the hook. Fold
+   the fragments into one sentence of about the same length, giving each
+   its verb and its object: *"Two lanes, one loop: the linter counts
+   sentences, the models read for meaning, and the reviewer decides."* The
    sweep flags three or more consecutive sentences of seven words or fewer.
 7. **Name the person.** *"…readable only to that conversation"* puts an
    abstraction where a reader belongs. The sentence is grammatical, so no
@@ -397,3 +400,34 @@ week, no instrument caught two of the five send-backs: one was a
 contradiction a human read, and one was an ambiguity a strong model
 repaired. The lane makes the human the last fresh reader instead of the
 first. It does not replace them.
+
+## 9. The converter: rewrite and check
+
+`tools/translate.mjs` joins the parts above into one run. The cheap finder
+flags a sentence, the counters flag form, the strong model rewrites each
+flagged sentence under the rules in section 6, and a gate decides whether
+the rewrite reaches the document. The gate is three counters: a rewrite
+that adds an obligation word the original did not have, keeps a reason
+inside the rule, or runs past 2.5 times the original's length is refused
+and appears in the table as *proposed, not applied*, with the counter
+named. A rewrite the model could not make without knowledge it did not
+have is *kept*, with a note saying what the author must supply.
+
+The first run without a gate rewrote twelve
+sentences and three of them said more than the original. One turned a
+statement of evidence into a new obligation. A translator that invents is
+worse than a linter that only flags.
+
+A strong-model check that asks "does the rewrite mean the same as the
+original" was tried first, in two framings, against 18 labelled pairs
+(`tests/fidelity.calibration.json`: 12 rewrites a reviewer accepted, 6
+inventions). It scored 4 of 12 and 2 of 6, near chance, in both. The
+counters score 11 of 12 and 4 of 6 on the same pairs. So the model's
+verdict is printed in the note as advice and never decides. Run
+`node tools/translate.mjs --calibrate-check` after changing either. The
+two inventions the counters miss are the ones with no tell: a plausible
+definition supplied from outside the paragraph. Only a person catches
+those. That is what the table is for.
+
+`--estimate` prints sentences, calls, tokens, dollars and minutes with no
+model spend. Its one real unknown is the flag rate. Measure it once.

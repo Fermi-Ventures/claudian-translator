@@ -85,12 +85,29 @@ const CHECKER = [
 // two framings, so it is ADVISORY: its verdict goes in the note, never the gate.
 const OBWORDS = /\b(must|shall|required|never|always|only|mandatory|prohibited)\b/gi;
 const REASON = /\b(because|which is why|this is why|the reason is|exists to|in order to)\b/i;
+// Negation: a rewrite that changes the NUMBER of negations flips or doubles a
+// meaning ("Do not operate in a bathtub" → "Operate in a bathtub"). Counted,
+// not matched, so "never" → "do not" passes and a dropped "not" does not.
+const NEG = /\b(not|never|no|none|nothing|neither|nor|without|unless|don't|doesn't|didn't|won't|can't|cannot|shouldn't|mustn't|isn't|aren't|wasn't|weren't)\b/gi;
+// Polarity pairs: a rewrite that keeps the negation count but swaps an
+// antonym flips the meaning with no negation mark ("Never return false" →
+// "Do not return true"). A finite list; it catches the swaps it names and
+// nothing else, which the README says.
+const PAIRS = [['true', 'false'], ['always', 'never'], ['on', 'off'], ['enable', 'disable'], ['enabled', 'disabled'], ['open', 'closed'], ['allow', 'deny'], ['allowed', 'denied'], ['before', 'after'], ['above', 'below'], ['inside', 'outside'], ['include', 'exclude'], ['accept', 'reject'], ['start', 'stop'], ['more', 'less'], ['minimum', 'maximum'], ['increase', 'decrease'], ['add', 'remove'], ['connect', 'disconnect'], ['lock', 'unlock'], ['valid', 'invalid'], ['safe', 'unsafe'], ['required', 'optional'], ['permitted', 'forbidden'], ['wet', 'dry'], ['hot', 'cold'], ['up', 'down'], ['first', 'last']];
 function fidelityCounters(before, after) {
   const f = [];
   const ob = s => new Set((s.match(OBWORDS) || []).map(w => w.toLowerCase()));
   const nb = ob(before), na = ob(after);
   const added = [...na].filter(w => !nb.has(w));
   if (added.length) f.push(`new obligation word: ${added.join(', ')}`);
+  const negB = (before.match(NEG) || []).length, negA = (after.match(NEG) || []).length;
+  if (negB !== negA) f.push(`negation count changed: ${negB} → ${negA}`);
+  const words = s => new Set(s.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/));
+  const wb = words(before), wa = words(after);
+  for (const [x, y] of PAIRS) {
+    if (wb.has(x) && !wb.has(y) && wa.has(y) && !wa.has(x)) f.push(`polarity swapped: ${x} → ${y}`);
+    if (wb.has(y) && !wb.has(x) && wa.has(x) && !wa.has(y)) f.push(`polarity swapped: ${y} → ${x}`);
+  }
   if (REASON.test(after)) f.push('reason kept inside the rule');
   const ratio = after.split(/\s+/).length / Math.max(1, before.split(/\s+/).length);
   if (ratio > 2.5) f.push(`rewrite is ${ratio.toFixed(1)}x the original's length`);
@@ -143,7 +160,8 @@ if (args.includes('--calibrate-check')) {
   const regParas = readFileSync(new URL('../tests/before.md', import.meta.url), 'utf8').replace(/\r/g, '').replace(/^#+ .*$/gm, '').split(/\n\n+/).map(p => p.replace(/\n/g, ' ').trim()).filter(Boolean);
   const paraOf = s => regParas.find(p => p.includes(s.slice(0, 40))) || '(not available)';
   const t0 = Date.now();
-  const res = await pool(set, c => ask(REWRITE, [...CHECKER, '', 'THE PARAGRAPH:', paraOf(c.before), '', 'BEFORE:', c.before, '', 'AFTER:', c.after, '', 'DROPPED REASON:', c.dropped || '(none)'].join('\n')));
+  // --no-check: counters only, no model calls (seconds, free).
+  const res = CHECK ? await pool(set, c => ask(REWRITE, [...CHECKER, '', 'THE PARAGRAPH:', paraOf(c.before), '', 'BEFORE:', c.before, '', 'AFTER:', c.after, '', 'DROPPED REASON:', c.dropped || '(none)'].join('\n'))) : set.map(() => null);
   let tp = 0, fp = 0, tn = 0, fn = 0, ctp = 0, cfp = 0, ctn = 0, cfn = 0;
   console.log(`# translate --calibrate-check · model ${REWRITE} (advisory) · counters (the gate) · ${set.length} labelled pairs\n`);
   set.forEach((c, i) => {

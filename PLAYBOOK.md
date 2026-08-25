@@ -406,9 +406,11 @@ first. It does not replace them.
 `tools/translate.mjs` joins the parts above into one run. The cheap finder
 flags a sentence, the counters flag form, the strong model rewrites each
 flagged sentence under the rules in section 6, and a gate decides whether
-the rewrite reaches the document. The gate is three counters: a rewrite
-that adds an obligation word the original did not have, keeps a reason
-inside the rule, or runs past 2.5 times the original's length is refused
+the rewrite reaches the document. The gate is five counters: a rewrite
+that adds an obligation word the original did not have, changes the
+number of negations, swaps a word for its opposite from a fixed list,
+keeps a reason inside the rule, or runs past 2.5 times the original's
+length is refused
 and appears in the table as *proposed, not applied*, with the counter
 named. A rewrite the model could not make without knowledge it did not
 have is *kept*, with a note saying what the author must supply.
@@ -419,14 +421,18 @@ statement of evidence into a new obligation. A translator that invents is
 worse than a linter that only flags.
 
 A strong-model check that asks "does the rewrite mean the same as the
-original" was tried first, in two framings, against 18 labelled pairs
-(`tests/fidelity.calibration.json`: 12 rewrites a reviewer accepted, 6
-inventions). It scored 4 of 12 and 2 of 6, near chance, in both. The
-counters score 11 of 12 and 4 of 6 on the same pairs. So the model's
+original" was tried first, in two framings, against labelled pairs
+(`tests/fidelity.calibration.json`: rewrites a reviewer accepted,
+inventions from early runs, and inversions such as a dropped *not*). On
+the first 18 it scored 4 of 12 and 2 of 6, near chance, in both
+framings. The counters, on all 24, refuse 8 of the 10 bad rewrites
+including every inversion, and hold 4 of the 14 good ones, each of which
+introduced a *not* while saying a metaphor plainly. So the model's
 verdict is printed in the note as advice and never decides. Run
 `node tools/translate.mjs --calibrate-check` after changing either. The
 two inventions the counters miss are the ones with no tell: a plausible
-definition supplied from outside the paragraph. Only a person catches
+definition supplied from outside the paragraph. An opposite that is not
+on the polarity list is the same class. Only a person catches
 those. That is what the table is for.
 
 `--estimate` prints sentences, calls, tokens, dollars and minutes with no

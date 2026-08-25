@@ -40,19 +40,35 @@ By hand: `git clone` the repo, then `node cli.mjs install --into <your project>`
 ## How to use
 
 - *"Claude, produce user documentation for my engineers. No Claudian."*
+- *"Claude, that sounds Claudian."*
 - *"Claude, produce user documentation for my engineers. Estimate token consumption to remove Claudian."*
 
-The skill runs `cli.mjs translate` on the document. You get two files back: `<doc>.translation.md`, a table of every flagged sentence with its shape, the original, the rewrite and a note, and `<doc>.translated.md`, the document with the rewrites that passed the gate applied. Sentences marked **kept** need something only the author knows, and the note says what. Sentences marked **proposed, not applied** are rewrites the gate refused: a new obligation word, a reason left inside the rule, or a rewrite far longer than the original, which is what invention looks like. They are never applied without a person.
-
-By hand:
-
-```sh
-node cli.mjs translate doc.md              # find (Haiku), rewrite (Sonnet), gate (counters), apply
-node cli.mjs estimate doc.md --rate 0.3    # no model calls: sentences, tokens, dollars, minutes
-node cli.mjs lint doc.md                   # the free Vale lint on its own
-```
+The first runs the translator on the document Claude just wrote. The second runs it on the passage you point at, or on Claude's last answer if you point at nothing, and shows you the before and after. The third prints sentences, calls and dollars before anything is spent. In every case you get `<doc>.translation.md`, the table of every flagged sentence with its shape, the original, the rewrite and a note, and `<doc>.translated.md`, the document with the rewrites that passed the gate applied. Sentences marked **kept** need something only the author knows, and the note says what. Sentences marked **proposed, not applied** are rewrites the gate refused, and the note names why. They are never applied without a person.
 
 `PLAYBOOK.md` has the prompts, the writing rules, the calibration procedure and the failure modes, for anyone who wants to rebuild this from parts.
+
+## Solution workflow
+
+```mermaid
+flowchart TB
+  T["Text to review\na rule, a spec, a brief"] --> V
+  subgraph D["Deterministic half — free, no variance"]
+    V["Vale and the counters\nreadability grade · sentence length · semicolons\nplus the Team lists of known phrases"]
+  end
+  subgraph M["Model half — cents per document"]
+    F["Find\nHaiku, one call per sentence"]
+    W["Rewrite\nSonnet, one call per flagged sentence, by shape"]
+    C["Gate\ncounters refuse a rewrite that adds an obligation, drops or adds a negation,\nswaps a polarity word, keeps a reason, or balloons\nSonnet's same-meaning opinion is advisory"]
+    F --> W --> C
+  end
+  V --> F
+  C --> H
+  H["The human\naccepts the applied rows, answers the kept rows, fixes the refused rows"]
+  F -. "each phrase found becomes a list entry" .-> V
+  H -. "each send-back becomes a list entry" .-> V
+```
+
+Two halves and one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. The model half reads for meaning and rewrites. The counters then refuse any rewrite that shows the marks of invention. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration file is the one store you keep. It measures the models, and it can be quoted into the finder's prompt as examples.
 
 ## Analysis
 
@@ -69,32 +85,9 @@ Prices are the public list at the time of writing (Haiku $1 in and $5 out per mi
 
 **What you get back.** Every flagged sentence lands in the table with one of three outcomes. *Applied*: the rewrite passed the gate and is already in `<doc>.translated.md`. *Kept*: Sonnet could not rewrite it without knowledge only the author has, and the note says what is missing. *Proposed, not applied*: the rewrite showed a mark of invention and was refused, and the note names the mark. You read the table, not the document.
 
-**How we know it does not invent.** The first version of the converter had no gate. On the regression text it rewrote twelve sentences and three of them said more than the original, and one turned a statement of evidence into a new obligation. So the gate was built and calibrated on labelled pairs: twelve rewrites a human reviewer had accepted and six inventions from those early runs. A Sonnet call asked "does the rewrite mean the same" accepted 4 of the 12 good rewrites and let 2 of the 6 inventions through, in one framing, and 5 and 5 in another: near chance both times, so its answer is printed as advice and never decides. Three counters decide instead. A rewrite that adds an obligation word (*must*, *never*, *only*), keeps a reason inside the rule, or runs past 2.5 times the original's length is refused. On the same pairs the counters accept 11 of the 12 and refuse 4 of the 6. The two inventions they miss are the ones with no countable mark: a plausible definition supplied from outside the paragraph. Those are yours to catch, and the table is short enough that you can.
+**How we know it does not invent.** The first version of the converter had no gate. On the regression text it rewrote twelve sentences and three of them said more than the original, and one turned a statement of evidence into a new obligation. So the gate was built and calibrated on labelled pairs: fourteen rewrites a human reviewer had accepted, six inventions from those early runs, and four inversions of the kind a safety manual cannot survive (a dropped *not*; *never* to *always*; *never return false* to *do not return true*). A Sonnet call asked "does the rewrite mean the same" accepted 4 of the 12 good rewrites and let 2 of the 6 inventions through, in one framing, and 5 and 5 in another: near chance both times, so its answer is printed as advice and never decides. Counters decide instead. A rewrite is refused if it adds an obligation word (*must*, *never*, *only*), changes the number of negations (a dropped *not* is how "do not operate in a bathtub" becomes "operate in a bathtub"), swaps a word for its opposite from a fixed list (*true* for *false*, *on* for *off*, *allow* for *deny*), keeps a reason inside the rule, or runs past 2.5 times the original's length. On the same pairs the counters refuse 8 of the 10 bad rewrites, all four inversions among them, and accept 10 of the 14 good ones. The four good rewrites they hold each introduced a *not* as part of saying the metaphor plainly, and holding is the side to err on. What they miss is whatever leaves no countable mark: a plausible definition supplied from outside the paragraph, or an opposite that is not on the list. Those are yours to catch, and the table is short enough that you can. Do not run this on text where an inverted sentence can hurt someone unless a person reads every applied row.
 
-**What the numbers are, and are not.** Eighteen pairs and twenty-five labelled sentences are calibration sets, not samples. They exist so that every change to a prompt or a counter is run against the same pass/fail set before it ships, and the finder's figures on its set (Haiku precision 0.77 and recall 0.83, Sonnet 0.69 and 0.92) are read the same way: a regression line, not a claim about all prose. Add your own reviewer's send-backs to `tests/claudian.calibration.json` and `tests/fidelity.calibration.json` and the numbers become yours.
-
-## Solution workflow
-
-```mermaid
-flowchart TB
-  T["Text to review\na rule, a spec, a brief"] --> V
-  subgraph D["Deterministic half — free, no variance"]
-    V["Vale and the counters\nreadability grade · sentence length · semicolons\nplus the Team lists of known phrases"]
-  end
-  subgraph M["Model half — cents per document"]
-    F["Find\nHaiku, one call per sentence"]
-    W["Rewrite\nSonnet, one call per flagged sentence, by shape"]
-    C["Gate\ncounters refuse a rewrite that adds an obligation, keeps a reason, or balloons\nSonnet's same-meaning opinion is advisory"]
-    F --> W --> C
-  end
-  V --> F
-  C --> H
-  H["The human\naccepts the applied rows, answers the kept rows, fixes the refused rows"]
-  F -. "each phrase found becomes a list entry" .-> V
-  H -. "each send-back becomes a list entry" .-> V
-```
-
-Two halves and one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. The model half reads for meaning and rewrites. The counters then refuse any rewrite that shows the marks of invention. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration file is the one store you keep. It measures the models, and it can be quoted into the finder's prompt as examples.
+**What the numbers are, and are not.** Twenty-four pairs and twenty-five labelled sentences are calibration sets, not samples. They exist so that every change to a prompt or a counter is run against the same pass/fail set before it ships, and the finder's figures on its set (Haiku precision 0.77 and recall 0.83, Sonnet 0.69 and 0.92) are read the same way: a regression line, not a claim about all prose. Add your own reviewer's send-backs to `tests/claudian.calibration.json` and `tests/fidelity.calibration.json` and the numbers become yours.
 
 ## Layout
 

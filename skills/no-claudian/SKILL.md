@@ -1,7 +1,16 @@
 ---
 name: no-claudian
-description: Use when the user says "No Claudian", asks for prose free of Claudian phrasing, or asks to estimate the token cost of removing Claudian. Runs the Claudian Translator on a document you produced or were given, applies the rewrites that pass the fidelity check, and reports what was kept and why.
+description: Use when the user says "No Claudian", says a passage "sounds Claudian", asks for prose free of Claudian phrasing, or asks to estimate the token cost of removing Claudian. Runs the Claudian Translator on a document you produced or were given, applies the rewrites that pass the gate, and reports what was kept and why.
 ---
+
+## When the user says "that sounds Claudian"
+
+They mean the text you just produced, or the passage they quote. Do not argue and do not rewrite it freehand.
+
+1. Write the passage (or your whole last answer, if they did not quote) to a file.
+2. Run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs translate <file> --jobs 8`.
+3. Show the before/after table from `<file>.translation.md`, then the translated text. If the translator flagged nothing, say so and ask which sentence they mean. Run again with `--all` on that sentence.
+4. Add any phrase the user names to `vale/styles/Team/Insider.yml`, quoted, so it is caught for free next time.
 
 # No Claudian
 
@@ -15,10 +24,10 @@ description: Use when the user says "No Claudian", asks for prose free of Claudi
    `${CLAUDE_PLUGIN_ROOT}` is the repo root: the plugin root when installed as a plugin, or the path `node cli.mjs install` printed. If Vale or the packs are missing, run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs install` first.
 3. Read `<file>.translation.md`. Every row is one sentence: its shape, the original, the rewrite, and a note.
    - Rows marked applied are already in `<file>.translated.md`.
-   - Rows marked **(kept)** could not be rewritten without knowledge only the author has. Supply it yourself if you have it, then rewrite the sentence by hand under the rules in PLAYBOOK.md §6; otherwise leave it and say so.
+   - Rows marked **(kept)** could not be rewritten without knowledge only the author has. Supply it yourself if you have it, then rewrite the sentence by hand under the rules in PLAYBOOK.md §6. Otherwise leave it and say so.
    - Rows marked **(proposed, not applied) … REFUSED** are rewrites the gate refused: they added an obligation, kept a reason inside the rule, or grew far past the original. Never apply them as they stand. Fix the sentence by hand so it says exactly what the original said.
    - Every applied row still deserves one read: the gate catches the marks of invention, not invention that leaves no mark. A rewrite that supplies a plausible definition from outside the paragraph passes the gate and is still wrong.
-4. Replace the document with `<file>.translated.md` plus your hand fixes. Run the translator once more; a clean second pass has zero applied rows.
+4. Replace the document with `<file>.translated.md` plus your hand fixes. Run the translator once more. A clean second pass has zero applied rows.
 5. Report to the user in three lines: how many sentences, how many rewritten, and the kept sentences with what each needs.
 
 ## When the user asks to estimate token consumption
@@ -27,6 +36,6 @@ Run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs estimate <file> --rate <r>` and show the
 
 ## Rules that bind you here
 
-- The translator never blocks and never overrides the author. It proposes; you and the user decide.
-- Do not add a phrase to `vale/styles/Team/Insider.yml` as a bare word. Quote the phrase. Run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs lint tests/insider.literal-controls.md` afterwards; it must report zero hits.
+- The translator never blocks and never overrides the author. It proposes. You and the user decide.
+- Do not add a phrase to `vale/styles/Team/Insider.yml` as a bare word. Quote the phrase. Run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs lint tests/insider.literal-controls.md` afterwards. It must report zero hits.
 - If a rewrite says more than the original, it is wrong even when it reads better.

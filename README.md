@@ -72,7 +72,7 @@ Two halves and one loop. The deterministic half counts what can be counted and m
 
 ## Analysis
 
-**What it costs.** Two models do the work: Haiku reads every sentence, Sonnet rewrites the flagged ones and gives a second opinion on each rewrite. At a 30 percent flag rate, which is what a first draft produces, a page of 400 words costs about ten cents. `node cli.mjs estimate <file>` prints the exact figure for your file before you spend anything.
+**What it costs.** Two models do the work: Haiku reads every sentence, Sonnet rewrites the flagged ones and gives a second opinion on each rewrite. At a 30 percent flag rate, which is what a first draft produces, a page of 400 words costs about ten cents. `node cli.mjs estimate <file>` prints the exact figure for your file before you spend anything. Each sentence is its own call. Batching sentences by paragraph is available (`--by paragraph`) for the rewrite and the check, and it halves the number of calls. It is not the default: measured, Haiku stops flagging the strongest sentences when it reads them in a batch, and the dollar saving on a small document is a few cents.
 
 | document | Haiku calls (find) | Sonnet calls (rewrite and target check) | cost |
 |---|---|---|---|

@@ -442,3 +442,34 @@ those. That is what the table is for.
 
 `--estimate` prints sentences, calls, tokens, dollars and minutes with no
 model spend. Its one real unknown is the flag rate. Measure it once.
+
+## 10. Batching by paragraph: measured, and where it pays
+
+The models take an array as readily as a sentence. `--by paragraph` sends
+one Sonnet call per paragraph with every flagged sentence numbered, and
+one target-check call per paragraph with every pair. `--find-by
+paragraph` does the same for the Haiku finder. Both were measured on the
+regression text and the labelled sentences before either was allowed on
+by default.
+
+The finder loses what matters. Batched in chunks of five, Haiku went from
+precision 0.77 and recall 0.83 to precision 1.00 and recall 0.67, and the
+four sentences it stopped flagging were the reviewer's own send-backs,
+the strongest positives in the set. Chunks of three gave the same four
+misses with worse precision. The batch makes the finder conservative on
+exactly the sentences the lane is for, so the finder stays per
+sentence.
+
+The rewrite and the check batch without that loss, and the saving is in
+calls and wall time, not much in dollars: on the regression text the
+rewrite stage went from 62 to 47 seconds and the finder from 90 to 80
+with eight calls in flight, and the estimate for a two-page document
+drops from about 28 to 25 cents. The rules and the paragraph are paid
+once per paragraph instead of once per sentence, but at a 30 percent
+flag rate nearly every paragraph has a flagged sentence, so the number of
+rewrite calls barely moves. Where batching pays is when calls are the
+constraint: a rate limit, a sequential run, or a CLI whose start-up
+dominates. One batched rewrite on the regression text invented a meaning
+that left no mark and passed the gate, which the per-sentence run had
+kept. One run is not a calibration, so paragraph mode for the rewrite
+is available and is not the default until a larger set says it is equal.

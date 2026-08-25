@@ -28,8 +28,19 @@ const ALL = args.includes('--all');
 const CHECK = !args.includes('--no-check');
 const ESTIMATE = args.includes('--estimate');
 const RATE = +opt('--rate', 0.3);
+// --by sentence | paragraph: the unit for the REWRITE and the TARGET CHECK.
+// Paragraph mode sends one Sonnet call per paragraph with every flagged
+// sentence numbered, and one check call per paragraph with every pair: the
+// rules are paid once per paragraph, the rewrites see each other, and the
+// CLI starts once per paragraph. The gate is per sentence in both modes.
+// The FINDER stays per sentence unless --find-by paragraph is passed: batched,
+// Haiku dropped from recall 0.83 to 0.67 on the labelled set and the four it
+// stopped flagging were the reviewer's own send-backs, at chunks of five and
+// of three alike (--calibrate-find --by paragraph [--chunk n] reproduces it).
+const BY = opt('--by', 'sentence');
+const FIND_BY = opt('--find-by', 'sentence');
 const file = args.find((a, i) => !a.startsWith('--') && !(i > 0 && ['--find', '--rewrite', '--jobs', '--rate'].includes(args[i - 1])));
-if (!file && !args.includes('--calibrate-check')) { console.error('usage: translate.mjs <file.md> [--find m] [--rewrite m] [--jobs n] [--all] [--no-check] | <file.md> --estimate [--rate r] [--secs f,r,c] | --calibrate-check'); process.exit(2); }
+if (!file && !args.includes('--calibrate-check') && !args.includes('--calibrate-find')) { console.error('usage: translate.mjs <file.md> [--find m] [--rewrite m] [--jobs n] [--all] [--no-check] | <file.md> --estimate [--rate r] [--secs f,r,c] | --calibrate-check'); process.exit(2); }
 const cwd = join(tmpdir(), 'claudian-empty');
 mkdirSync(cwd, { recursive: true });
 
@@ -136,7 +147,7 @@ function counters(s, x) {
 }
 
 // ---------- model plumbing ----------
-function ask(model, prompt) {
+function ask(model, prompt, array = false) {
   return new Promise((resolve) => {
     const p = spawn('claude', ['-p', '--model', model, '--setting-sources', ''], { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
@@ -145,18 +156,62 @@ function ask(model, prompt) {
     p.on('close', code => {
       clearTimeout(timer);
       if (code !== 0) return resolve(null);
-      const m = out.match(/\{[\s\S]*\}/);
+      const m = out.match(array ? /\[[\s\S]*\]/ : /\{[\s\S]*\}/);
       if (!m) return resolve(null);
       try { resolve(JSON.parse(m[0])); } catch { resolve(null); }
     });
     p.stdin.end(prompt);
   });
 }
+// Paragraph mode: numbered sentences in, an array of objects with "n" out.
+const numbered = ss => ss.map((s, i) => `${i + 1}. ${s}`).join('\n');
+const byN = (arr, len) => { const m = new Array(len).fill(null); if (Array.isArray(arr)) for (const o of arr) { if (o && Number.isInteger(o.n) && o.n >= 1 && o.n <= len) m[o.n - 1] = o; } return m; };
+async function findByParagraph(groups) {
+  const res = await pool(groups, g => ask(FIND, [...RUBRIC.slice(0, -1),
+    'You will read ONE PARAGRAPH, sentences numbered. Judge EACH sentence on its own, using the paragraph only to resolve pronouns and back-references. A sentence is not insider prose because its neighbours are.',
+    'Reply with one JSON array and nothing else, one object per numbered sentence, in order: [{"n": 1, "insider": true|false, "phrase": "<the words that make it insider, or empty>", "why": "<one sentence>"}, ...]', '',
+    ...(g.opening ? ['THE DOCUMENT\'S OPENING (context only):', g.opening, ''] : []),
+    'THE PARAGRAPH, sentences numbered:', numbered(g.ss)].join('\n'), true));
+  return res.map((r, i) => byN(r, groups[i].ss.length));
+}
+async function rewriteByParagraph(groups) {
+  const res = await pool(groups, g => ask(REWRITE, [...RULES.slice(0, -1),
+    'You will rewrite SEVERAL sentences of one paragraph, each numbered and each with the reason it was flagged. Rewrite each on its own; the rest of the paragraph is context. Reply with one JSON array and nothing else, one object per flagged sentence: [{"n": <number>, "shape": "<from the vocabulary>", "after": "<the rewrite>", "dropped_reason": "<or empty>", "keep": true|false, "note": "<one sentence>"}, ...]', '',
+    'THE PARAGRAPH, sentences numbered:', numbered(g.ss), '',
+    'REWRITE THESE:', g.targets.map(t => `${t.n}. flagged: ${t.why}`).join('\n')].join('\n'), true));
+  return res.map((r, i) => byN(r, groups[i].ss.length));
+}
+async function checkByParagraph(groups) {
+  const res = await pool(groups, g => ask(REWRITE, [...CHECKER.slice(0, -1),
+    'You will judge SEVERAL before/after pairs from one paragraph, numbered. Reply with one JSON array and nothing else: [{"n": <number>, "target_changed": true|false, "what": "<the swap, or empty>"}, ...]', '',
+    'THE PARAGRAPH:', g.ss.join(' '), '',
+    'THE PAIRS:', g.pairs.map(p => `${p.n}. BEFORE: ${p.before}\n   AFTER: ${p.after}\n   DROPPED REASON: ${p.dropped || '(none)'}`).join('\n')].join('\n'), true));
+  return res.map((r, i) => byN(r, groups[i].ss.length));
+}
 async function pool(items, fn) {
   const out = new Array(items.length); let next = 0;
   async function worker() { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); } }
   await Promise.all(Array.from({ length: Math.min(JOBS, items.length) }, worker));
   return out;
+}
+
+// ---------- --calibrate-find: the finder in paragraph mode against the labelled sentences ----------
+// The per-sentence numbers live in claudian.mjs --calibrate. This groups the
+// same labelled sentences into pseudo-paragraphs of five, in file order, and
+// asks for one verdict per sentence, so batched and per-sentence recall and
+// precision are compared on the same rows.
+if (args.includes('--calibrate-find')) {
+  const set = JSON.parse(readFileSync(new URL('../tests/claudian.calibration.json', import.meta.url), 'utf8'));
+  const size = +opt('--chunk', 5);
+  const gs = []; for (let i = 0; i < set.length; i += size) gs.push({ ss: set.slice(i, i + size).map(r => r.text), opening: '' });
+  const t0 = Date.now();
+  const per = await findByParagraph(gs);
+  const got = gs.flatMap((g, gi) => per[gi]);
+  let tp = 0, fp = 0, tn = 0, fn = 0, un = 0;
+  console.log(`# translate --calibrate-find · ${FIND} · by paragraph (chunks of ${size}) · ${set.length} labelled sentences · ${gs.length} calls\n`);
+  set.forEach((s, i) => { const j = got[i]; if (!j) { un++; console.log(`??     label ${s.label}  ${JSON.stringify(s.text.slice(0, 80))}`); return; } const g = j.insider ? 1 : 0; const mark = g === s.label ? 'ok' : (s.label ? 'MISS' : 'FALSE+'); if (g && s.label) tp++; else if (g && !s.label) fp++; else if (!g && !s.label) tn++; else fn++; console.log(`${mark.padEnd(6)} label ${s.label} got ${g}  ${JSON.stringify(s.text.slice(0, 80))}${j.phrase ? `  [${j.phrase}]` : ''}`); });
+  console.log(`\n## result · TP ${tp} · FP ${fp} · TN ${tn} · FN ${fn} · unparsed ${un} · precision ${(tp / (tp + fp || 1)).toFixed(2)} · recall ${(tp / (tp + fn || 1)).toFixed(2)} · ${((Date.now() - t0) / 1000).toFixed(0)}s wall`);
+  process.exit(0);
 }
 
 // ---------- --calibrate-check: the checker against labelled pairs ----------
@@ -203,8 +258,8 @@ const items = paras.flatMap((para, pi) => {
   const ctx = pi === 0 ? para : `${opening}\n\n[…]\n\n${para}`;
   const ss = para.split(/(?<=[.!?])\s+(?=[A-Z(“"'])/).map(s => s.trim()).filter(s => s && !/\|/.test(s));
   const out = []; let run = [];
-  const flush = () => { if (run.length >= 3) out.push({ s: run.join(' '), para: ctx, staccato: run.length }); else run.forEach(s => out.push({ s, para: ctx })); run = []; };
-  for (const s of ss) { if (s.split(/\s+/).length <= 5) run.push(s); else { flush(); out.push({ s, para: ctx }); } }
+  const flush = () => { if (run.length >= 3) out.push({ s: run.join(' '), para: ctx, pi, staccato: run.length }); else run.forEach(s => out.push({ s, para: ctx, pi })); run = []; };
+  for (const s of ss) { if (s.split(/\s+/).length <= 5) run.push(s); else { flush(); out.push({ s, para: ctx, pi }); } }
   flush();
   return out;
 }).filter(x => x.s.split(/\s+/).length >= 3);
@@ -213,11 +268,18 @@ const items = paras.flatMap((para, pi) => {
 const tok = s => Math.ceil(s.length / 4);
 if (ESTIMATE) {
   const rubric = tok(RUBRIC.join('\n')), rules = tok(RULES.join('\n')), checker = tok(CHECKER.join('\n'));
-  const findIn = items.reduce((a, x) => a + rubric + tok(x.para) + tok(x.s) + 40, 0), findOut = items.length * 60;
+  const nParas = new Set(items.map(x => x.pi)).size;
   const n = Math.round(items.length * RATE);
   const avgPara = items.reduce((a, x) => a + tok(x.para), 0) / (items.length || 1), avgS = items.reduce((a, x) => a + tok(x.s), 0) / (items.length || 1);
-  const rwIn = Math.round(n * (rules + avgPara + avgS + 80)), rwOut = n * 200;
-  const ckIn = Math.round(n * (checker + 3 * avgS + 40)), ckOut = n * 60;
+  const byPara = BY === 'paragraph', findPara = FIND_BY === 'paragraph';
+  // Paragraph mode: the rubric once per paragraph, the paragraph once; one
+  // rewrite call and one check call per paragraph that has a flagged sentence.
+  const findCalls = findPara ? nParas : items.length;
+  const findIn = findPara ? Math.round(nParas * (rubric + 60) + items.reduce((a, x) => a + tok(x.s), 0) + (opening ? nParas * tok(opening) : 0)) : items.reduce((a, x) => a + rubric + tok(x.para) + tok(x.s) + 40, 0);
+  const findOut = items.length * 60;
+  const rwCalls = byPara ? Math.min(n, nParas) : n, ckCalls = rwCalls;
+  const rwIn = byPara ? Math.round(rwCalls * (rules + avgPara + 80) + n * (avgS + 30)) : Math.round(n * (rules + avgPara + avgS + 80)), rwOut = n * 200;
+  const ckIn = byPara ? Math.round(ckCalls * (checker + avgPara + 40) + n * 2 * avgS) : Math.round(n * (checker + 3 * avgS + 40)), ckOut = n * 60;
   const price = (m, i, o) => ((PRICES[m] || PRICES.sonnet).in * i + (PRICES[m] || PRICES.sonnet).out * o) / 1e6;
   const find$ = ALL ? 0 : price(FIND, findIn, findOut), rw$ = price(REWRITE, rwIn, rwOut), ck$ = CHECK ? price(REWRITE, ckIn, ckOut) : 0;
   // Seconds a call, find/rewrite/check. CLI start-up dominates and varies by
@@ -228,35 +290,53 @@ if (ESTIMATE) {
   console.log(`# estimate · ${file} · ${items.length} sentences · assumed flag rate ${RATE} → ${n} rewrites · prices per Mtok: ${FIND} $${PRICES[FIND]?.in}/$${PRICES[FIND]?.out}, ${REWRITE} $${PRICES[REWRITE]?.in}/$${PRICES[REWRITE]?.out}\n`);
   console.log('| step | model | calls | tokens in | tokens out | dollars | wall, 1 at a time | wall, ' + JOBS + ' at a time |');
   console.log('|---|---|---|---|---|---|---|---|');
-  if (!ALL) console.log(`| find | ${FIND} | ${items.length} | ${findIn} | ${findOut} | $${find$.toFixed(3)} | ${secs(items.length, SF) * JOBS}s | ${secs(items.length, SF)}s |`);
-  console.log(`| rewrite | ${REWRITE} | ${n} | ${rwIn} | ${rwOut} | $${rw$.toFixed(3)} | ${secs(n, SR) * JOBS}s | ${secs(n, SR)}s |`);
-  if (CHECK) console.log(`| check | ${REWRITE} | ${n} | ${ckIn} | ${ckOut} | $${ck$.toFixed(3)} | ${secs(n, SC) * JOBS}s | ${secs(n, SC)}s |`);
-  console.log(`| **total** | | ${(ALL ? 0 : items.length) + 2 * n} | ${(ALL ? 0 : findIn) + rwIn + (CHECK ? ckIn : 0)} | ${(ALL ? 0 : findOut) + rwOut + (CHECK ? ckOut : 0)} | **$${(find$ + rw$ + ck$).toFixed(2)}** | | |`);
+  if (!ALL) console.log(`| find | ${FIND} | ${findCalls} | ${findIn} | ${findOut} | $${find$.toFixed(3)} | ${secs(findCalls, SF) * JOBS}s | ${secs(findCalls, SF)}s |`);
+  console.log(`| rewrite | ${REWRITE} | ${rwCalls} | ${rwIn} | ${rwOut} | $${rw$.toFixed(3)} | ${secs(rwCalls, SR) * JOBS}s | ${secs(rwCalls, SR)}s |`);
+  if (CHECK) console.log(`| check | ${REWRITE} | ${ckCalls} | ${ckIn} | ${ckOut} | $${ck$.toFixed(3)} | ${secs(ckCalls, SC) * JOBS}s | ${secs(ckCalls, SC)}s |`);
+  console.log(`| **total** | | ${(ALL ? 0 : findCalls) + rwCalls + (CHECK ? ckCalls : 0)} | ${(ALL ? 0 : findIn) + rwIn + (CHECK ? ckIn : 0)} | ${(ALL ? 0 : findOut) + rwOut + (CHECK ? ckOut : 0)} | **$${(find$ + rw$ + ck$).toFixed(2)}** | | |`);
   console.log(`\nAssumptions: 4 characters a token; 60 output tokens a finder call, 200 a rewrite, 60 a check; ${SF}, ${SR} and ${SC} seconds a call (pass --secs f,r,c from a measured run; CLI start-up varies by machine and hour). The flag rate is the one number you must supply: 0.1 for ordinary prose, 0.3 for a first draft, 0.7 for text a reviewer has already sent back. Measure it once with a real run and pass --rate.`);
   process.exit(0);
 }
 
 // ---------- stage 1: find ----------
 const t0 = Date.now();
-console.error(`# translate · ${file} · ${items.length} sentences · find ${ALL ? 'all' : FIND} · rewrite ${REWRITE} · check ${CHECK ? REWRITE : 'off'} · ${JOBS} in flight`);
+console.error(`# translate · ${file} · ${items.length} sentences · find ${ALL ? 'all' : FIND} by ${FIND_BY} · rewrite ${REWRITE} by ${BY} · check ${CHECK ? REWRITE : 'off'} · ${JOBS} in flight`);
+// Paragraph groups: items in file order, grouped by paragraph index.
+const groups = [];
+items.forEach((x, i) => { let g = groups[groups.length - 1]; if (!g || g.pi !== x.pi) { g = { pi: x.pi, idx: [], ss: [], opening: x.pi === 0 ? '' : opening }; groups.push(g); } g.idx.push(i); g.ss.push(x.s); });
+const whyOf = x => [x.find && x.find.insider ? `insider prose${x.find.phrase ? ` [${x.find.phrase}]` : ''}: ${x.find.why}` : '', ...x.form].filter(Boolean).join('; ');
+
 let found;
 if (ALL) found = items.map(() => ({ insider: true, phrase: '', why: '--all' }));
+else if (FIND_BY === 'paragraph') { found = new Array(items.length).fill(null); const per = await findByParagraph(groups); groups.forEach((g, gi) => g.idx.forEach((i, k) => { found[i] = per[gi][k]; })); }
 else found = await pool(items, x => ask(FIND, [...RUBRIC, '', 'THE PARAGRAPH IT SITS IN (context only — judge the sentence, and use this to resolve pronouns and back-references):', x.para, '', 'THE SENTENCE:', x.s].join('\n')));
 const t1 = Date.now();
 const flagged = items.map((x, i) => ({ ...x, i, find: found[i], form: counters(x.s, x) })).filter(x => (x.find && x.find.insider) || x.form.length);
 console.error(`# found ${flagged.length} of ${items.length} · ${((t1 - t0) / 1000).toFixed(0)}s`);
 
 // ---------- stage 2: rewrite ----------
-const rewritten = await pool(flagged, x => ask(REWRITE, [...RULES, '',
-  'WHY IT WAS FLAGGED:', [x.find && x.find.insider ? `insider prose${x.find.phrase ? ` [${x.find.phrase}]` : ''}: ${x.find.why}` : '', ...x.form].filter(Boolean).join('; '), '',
-  'THE PARAGRAPH IT SITS IN:', x.para, '',
-  'THE SENTENCE:', x.s].join('\n')));
+let rewritten;
+if (BY === 'paragraph') {
+  const rg = groups.map(g => ({ ...g, targets: g.idx.map((i, k) => { const f = flagged.find(x => x.i === i); return f ? { n: k + 1, why: whyOf(f) } : null; }).filter(Boolean) })).filter(g => g.targets.length);
+  const per = await rewriteByParagraph(rg);
+  const byItem = new Map(); rg.forEach((g, gi) => g.idx.forEach((i, k) => { if (per[gi][k]) byItem.set(i, per[gi][k]); }));
+  rewritten = flagged.map(x => byItem.get(x.i) || null);
+} else {
+  rewritten = await pool(flagged, x => ask(REWRITE, [...RULES, '', 'WHY IT WAS FLAGGED:', whyOf(x), '', 'THE PARAGRAPH IT SITS IN:', x.para, '', 'THE SENTENCE:', x.s].join('\n')));
+}
 const t2 = Date.now();
 
 // ---------- stage 3: check ----------
 const toCheck = flagged.map((x, k) => ({ x, r: rewritten[k], k })).filter(c => CHECK && c.r && !c.r.keep && c.r.after);
-const checks = await pool(toCheck, c => ask(REWRITE, [...CHECKER, '', 'THE PARAGRAPH:', c.x.para, '', 'BEFORE:', c.x.s, '', 'AFTER:', c.r.after, '', 'DROPPED REASON:', c.r.dropped_reason || '(none)'].join('\n')));
-const checkOf = new Map(toCheck.map((c, j) => [c.k, checks[j]]));
+let checkOf;
+if (BY === 'paragraph') {
+  const cg = groups.map(g => ({ ...g, pairs: g.idx.map((i, k) => { const c = toCheck.find(c => c.x.i === i); return c ? { n: k + 1, before: c.x.s, after: c.r.after, dropped: c.r.dropped_reason, k: c.k } : null; }).filter(Boolean) })).filter(g => g.pairs.length);
+  const per = await checkByParagraph(cg);
+  checkOf = new Map(); cg.forEach((g, gi) => g.pairs.forEach(p => { checkOf.set(p.k, per[gi][p.n - 1]); }));
+} else {
+  const checks = await pool(toCheck, c => ask(REWRITE, [...CHECKER, '', 'THE PARAGRAPH:', c.x.para, '', 'BEFORE:', c.x.s, '', 'AFTER:', c.r.after, '', 'DROPPED REASON:', c.r.dropped_reason || '(none)'].join('\n')));
+  checkOf = new Map(toCheck.map((c, j) => [c.k, checks[j]]));
+}
 const t3 = Date.now();
 
 // ---------- outputs ----------

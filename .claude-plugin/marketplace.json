@@ -1,5 +1,8 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "claudian-translator",
+  "description": "Converts Claude prose to text intended for humans.",
+  "owner": { "name": "Fermi Ventures" },
   "interface": { "displayName": "Claudian Translator" },
   "plugins": [
     {

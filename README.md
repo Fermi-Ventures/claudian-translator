@@ -34,8 +34,13 @@ Give Claude the link and say **install**.
 
 `INSTALL.md` is what Claude reads: a security read first, then one command. `node cli.mjs install` finds Vale or downloads its release binary for the platform, syncs the style packs, checks that `claude -p` answers, registers the `no-claudian` skill in the project, and runs a smoke test. No package manager, no admin rights. As a Claude Code plugin instead:
 
+Two commands, entered one at a time (pasting both into one prompt fails):
+
 ```
 /plugin marketplace add Fermi-Ventures/claudian-translator
+```
+
+```
 /plugin install claudian-translator@claudian-translator
 ```
 

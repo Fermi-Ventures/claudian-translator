@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Claudian Translator, on itself</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Sans:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root { --ground:#F4F5F7; --ink:#1B1F24; --soft:#5C6570; --rule:#D5DAE0; --accent:#1F6F78; --panel:#E9ECEF; --stripe:#EEF0F3; --mark-a:#FBE7C6; --mark-b:#D6F0E3; --mark-ink:#1B1F24;
+    --serif:"Source Serif 4", Georgia, "Times New Roman", serif; --sans:"IBM Plex Sans", "Segoe UI", Helvetica, Arial, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Consolas, Menlo, monospace; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ground:#14171B; --ink:#E4E7EA; --soft:#A7AFB8; --rule:#2C3238; --accent:#6FC2C8; --panel:#1C2126; --stripe:#191E23; --mark-a:#4A3A1E; --mark-b:#1E3D30; --mark-ink:#E4E7EA; } }
+  :root[data-theme="dark"] { --ground:#14171B; --ink:#E4E7EA; --soft:#A7AFB8; --rule:#2C3238; --accent:#6FC2C8; --panel:#1C2126; --stripe:#191E23; --mark-a:#4A3A1E; --mark-b:#1E3D30; --mark-ink:#E4E7EA; }
+  body { background:var(--ground); color:var(--ink); font-family:var(--serif); font-size:17px; line-height:1.6; margin:0; padding:0 1.25rem 5rem; }
+  main { max-width:74ch; margin:0 auto; }
+  .bar { position:sticky; top:0; z-index:5; background:var(--ground); border-bottom:1px solid var(--rule); padding:.8rem 0 .7rem; margin:0 0 1.5rem; display:flex; gap:1rem; align-items:center; flex-wrap:wrap; font-family:var(--sans); font-size:.9rem; }
+  .bar .eyebrow { font-family:var(--mono); font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:var(--soft); flex:1 1 100%; }
+  .switch { display:inline-flex; border:1px solid var(--ink); border-radius:999px; overflow:hidden; }
+  .switch button { font-family:var(--sans); font-size:.85rem; font-weight:600; padding:.45rem .95rem; border:0; background:transparent; color:var(--ink); cursor:pointer; }
+  .switch button[aria-pressed="true"] { background:var(--ink); color:var(--ground); }
+  .switch button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  label.chk { display:inline-flex; gap:.4rem; align-items:center; cursor:pointer; color:var(--soft); }
+  .count { font-family:var(--mono); font-size:.78rem; color:var(--soft); }
+  .stage { position:relative; }
+  .doc { transition:opacity .45s ease; }
+  .doc[hidden] { display:none; }
+  body.animating .doc { position:absolute; inset:0; }
+  mark { background:transparent; color:inherit; border-radius:2px; padding:0 .05em; transition:background .3s ease; }
+  body.marks .doc-a mark { background:var(--mark-a); color:var(--mark-ink); }
+  body.marks .doc-b mark { background:var(--mark-b); color:var(--mark-ink); }
+  .legend { display:flex; gap:1.2rem; font-family:var(--sans); font-size:.82rem; color:var(--soft); margin:0 0 1.2rem; }
+  .legend i { display:inline-block; width:.9rem; height:.9rem; border-radius:2px; vertical-align:-2px; margin-right:.35rem; }
+  .legend .a i { background:var(--mark-a); } .legend .b i { background:var(--mark-b); }
+  h1 { font-family:var(--sans); font-weight:600; font-size:clamp(2rem,4.5vw,2.8rem); line-height:1.1; margin:.4rem 0 1.2rem; letter-spacing:-.01em; text-wrap:balance; }
+  h2 { font-family:var(--sans); font-weight:600; font-size:1.45rem; margin:3rem 0 .8rem; padding-top:1.2rem; border-top:1px solid var(--rule); text-wrap:balance; }
+  h3 { font-family:var(--sans); font-weight:500; font-size:1.08rem; margin:1.9rem 0 .5rem; color:var(--accent); }
+  p { margin:0 0 1rem; text-wrap:pretty; }
+  a { color:var(--accent); }
+  code { font-family:var(--mono); font-size:.84em; background:var(--panel); padding:.1em .35em; border-radius:3px; }
+  pre.code { font-family:var(--mono); font-size:.8rem; line-height:1.55; background:var(--panel); padding:1rem 1.1rem; overflow-x:auto; border-left:3px solid var(--accent); margin:0 0 1.2rem; }
+  pre.code code { background:transparent; padding:0; font-size:inherit; }
+  ul, ol { padding-left:1.4rem; margin:0 0 1rem; } li { margin:.3rem 0; }
+  .tablewrap { overflow-x:auto; margin:.5rem 0 1.3rem; }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; min-width:640px; }
+  th, td { text-align:left; vertical-align:top; padding:.6rem .7rem; border-bottom:1px solid var(--rule); }
+  th { font-family:var(--sans); font-weight:600; font-size:.82rem; }
+  tbody tr:nth-child(even) { background:var(--stripe); }
+  .diagram { background:var(--panel); padding:1.2rem 1rem .6rem; margin:.4rem 0 1.2rem; display:flex; justify-content:center; overflow-x:auto; }
+  .diagram pre.mermaid { margin:0; background:transparent; font-size:.95rem; }
+  .report { background:var(--panel); padding:1rem 1.2rem; margin:0 0 2rem; font-family:var(--sans); font-size:.9rem; }
+  .report h4 { margin:.2rem 0 .5rem; font-size:.95rem; }
+  .report ul { list-style:none; padding:0; margin:0 0 .6rem; columns:2; gap:1.5rem; }
+  .report li { display:flex; justify-content:space-between; gap:.6rem; break-inside:avoid; border-bottom:1px dashed var(--rule); padding:.15rem 0; }
+  .report li b { font-family:var(--mono); font-weight:500; }
+  .report ul.held { columns:1; } .report ul.held li { display:block; }
+  .report .st { font-family:var(--mono); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); margin-right:.4rem; }
+  .report small { color:var(--soft); }
+  @media (prefers-reduced-motion: reduce) { .doc, mark { transition:none !important; } }
+</style></head><body>
+<main>
+  <div class="bar">
+    <div class="eyebrow">The Claudian Translator's own README, translated by its own tool · paragraphs: 20 flagged · 16 restructured · 4 refused</div>
+    <div class="switch" role="group" aria-label="Version">
+      <button id="btn-a" aria-pressed="true">As written</button>
+      <button id="btn-b" aria-pressed="false">Translated</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="chk" checked> mark what changed</label>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="legend"><span class="a"><i></i>passage the translator rewrote or reshaped</span><span class="b"><i></i>what it put there instead</span></div>
+  <div class="report">
+    <h4>What the run did to this page</h4>
+    <ul><li><span>paragraph shape</span><b>16</b></li><li><span>bullets rendered horizontally</span><b>5</b></li><li><span>an abstraction in a person's role</span><b>5</b></li><li><span>coined noun</span><b>4</b></li><li><span>ordinary words with insider meaning</span><b>3</b></li><li><span>metaphor</span><b>2</b></li><li><span>welded obligations</span><b>2</b></li><li><span>metaphor as definition</span><b>2</b></li><li><span>long sentence</span><b>2</b></li></ul>
+    <h4>Held for a person (26)</h4>
+    <ul class="held"><li><span class="st">refused</span> 1. **Counts.** Vale and the counters read the whole file for free: sentence length, readability, semicolons, e…<br><small>REFUSED: bold runs changed: 2 → 0</small></li><li><span class="st">refused</span> 2. **Moves paragraph breaks** if the paragraph lengths are uniform. One Sonnet call may merge two short neighb…<br><small>REFUSED: bold runs changed: 2 → 0</small></li><li><span class="st">refused</span> 6. **Gates every rewrite.** Counters refuse a rewrite that adds an obligation word, changes the number of nega…<br><small>REFUSED: bold runs changed: 2 → 0</small></li><li><span class="st">refused</span> - `&lt;doc&gt;.translation.md` is the story: what happened to the paragraphs, then a table of every flagged sentence…<br><small>REFUSED: list markers changed: 1 → 0</small></li><li><span class="st">refused</span> Every rewrite passes a gate that refuses the marks of invention.<br><small>REFUSED: negation count changed: 0 → 1</small></li><li><span class="st">kept</span> Any container the text lives in is the job of the Claude session that runs it.<br><small>The author must name what 'container' means here — e.g. a file, a chat message, an artifact, a document — since the paragraph only tells us the translator's sco</small></li><li><span class="st">kept</span> A rewrite that passed the gate is applied.<br><small>The author must specify what "passed the gate" actually checks — is it an automated rule, a model judgment, or a specific approval step — since that mechanism i</small></li><li><span class="st">refused</span> A rewrite that shows a mark of invention is proposed and held.<br><small>REFUSED: negation count changed: 0 → 1</small></li><li><span class="st">refused</span> It answers the kept rows itself when it knows the answer, which it usually does, since it wrote the document, …<br><small>REFUSED: negation count changed: 0 → 1</small></li><li><span class="st">kept</span> At the paragraph level the same run on a flat page (eleven paragraphs of about a hundred words each, every one…<br><small>The author must supply the actual meaning of 'run' and 'flat page' as used in this translator's context (e.g., what distinguishes a 'run' from other input forms</small></li><li><span class="st">kept</span> Vale and the counters read the whole file for free: sentence length, readability, semicolons, every phrase on …<br><small>Author must supply, in the surrounding text, what 'Vale' and 'the counters' are (tool/module names, not defined anywhere in the excerpt) and what cost 'for free</small></li><li><span class="st">refused</span> Reshapes each flagged paragraph.<br><small>REFUSED: target changed: unspecified/implicit actor → Sonnet</small></li><li><small>… and 14 more in the translation table.</small></li></ul>
+  </div>
+  <div class="stage">
+    <div class="doc doc-a" id="doc-a"><h1>Claudian Translator</h1>
+<p>Claudian Translator converts Claude prose to text intended for humans.</p>
+<p><mark>"Claudian" is prose written for the conversation that produced it. <mark>It reads fluently to the people who were there and stops everyone else: a coined phrase used as if it had been defined, a metaphor that carries the meaning, a reason folded into a rule, three obligations welded into one sentence, bullets rendered horizontally, an abstraction doing a person's job.</mark> A page of it has a shape too. Paragraphs all the same length, each opening with a bold label and closing on a short punchline, read as machine-made before a word is read.</mark></p>
+<p><mark>The translator works at both levels. It reshapes the paragraphs, then finds the sentences and rewrites each one for a reader who was not in the room. Every rewrite passes a gate that refuses the marks of invention. Claude reads the result, fixes what it can, and tells you what changed. Its scope is text. Any container the text lives in is the job of the Claude session that runs it.</mark></p>
+<h2>What this does</h2>
+<p><mark>Nobody marks the sentences. The translator finds them. Below is one run of <code>node cli.mjs translate tests/before.md</code>: each sentence as it was written, and what came back. Another run will word the rewrites differently. The shapes and the outcomes hold.</mark></p>
+<div class="tablewrap"><table><thead><tr><th>shape</th><th>before</th><th>after</th></tr></thead><tbody><tr><td>metaphor as definition</td><td>A copy you did not write is still only evidence of its moment — re-derive before relying.</td><td>A copy you did not write reflects only the state of the source when it was copied. Re-derive it before relying on it.</td></tr><tr><td>metaphor as instruction</td><td>A reason that keeps recurring is a backlog item wearing a footnote's clothes.</td><td>A reason that keeps recurring should be tracked as a backlog item, not written as a footnote.</td></tr><tr><td>metaphor as rule</td><td>The census is a burn-down, not an amnesty.</td><td>The census tracks how many backlog items remain, but it does not excuse or forgive the items still on it.</td></tr><tr><td>reason inside the rule</td><td>The chain counts as a site because it is the tell — the defect this rule exists to find.</td><td>The chain is counted as a site.<br><br><em>Moved out for the author to place as a note: the chain is the defect this rule exists to find.</em></td></tr><tr><td>an abstraction in a person's role</td><td>Standards, specs and agent briefs written inside a long AI-assisted conversation come out readable only to that conversation.</td><td>Standards, specs and agent briefs written inside a long AI-assisted conversation come out readable only to the people who were in that conversation.</td></tr><tr><td>bullets rendered horizontally</td><td>Two lanes and one loop. The linter counts and remembers. The models read and discover. The reviewer decides.</td><td>Two lanes, one loop: the linter counts and remembers, the models read and discover, and the reviewer decides.</td></tr><tr><td>run-on sentence: 57 words, one condition, three obligations</td><td>If an attribute's legal next value depends on its current value and it meets the threshold below, it is a state machine: it belongs to a named machine definition from the first migration in which it qualifies, and a nested or parallel lifecycle is expressed in the definition, never as a loop or branch in an executor.</td><td><strong>Proposed, held for a person.</strong> If an attribute's legal next value depends on its current value and it meets the threshold below, it is a state machine.<br><br>It must belong to a named machine definition, starting from the first migration in which it qualifies.<br><br>Any nested or parallel lifecycle must be expressed in that definition, not written as loop or branch logic in the code that runs it.<br><br><em>Held: the split added a "must" the original did not have. Accept it or change one word.</em></td></tr><tr><td>coined noun</td><td>The forcing function is the machine census.</td><td><strong>Kept, with a question.</strong> <em>The author must supply what "the machine census" is: a script, a CI job, a tool. The paragraph never says.</em></td></tr></tbody></table></div>
+<p><mark>Three outcomes, then. A rewrite that passed the gate is applied. A rewrite that shows a mark of invention is proposed and held. A sentence the translator cannot rewrite without knowledge only the author has is kept, with the question that would unlock it. <mark>The translator never blocks a document and never overrides the author.</mark> Claude reads the table. It answers the kept rows itself when it knows the answer, which it usually does, since it wrote the document, and it brings you the rest.</mark></p>
+<p><mark>At the paragraph level the same run on a flat page (eleven paragraphs of about a hundred words each, every one flagged) moved breaks so that eleven paragraphs became thirteen of clearly different lengths, with the words checked identical, and reshaped nine of the twelve it then flagged, dropping the bold labels and the punchlines, without introducing a single dash or semicolon. The page came out with no document-level flag.</mark></p>
+<h2>How to install</h2>
+<p>Give Claude the link and say <strong>install</strong>.</p>
+<ol><li><em>"Claude, evaluate https://github.com/Fermi-Ventures/claudian-translator for security risks. If clean, install it here."</em></li><li>Celebrate.</li></ol>
+<p><mark><code>INSTALL.md</code> is what Claude reads: a security read first, then one command. <code>node cli.mjs install</code> finds Vale or downloads its release binary for the platform, syncs the style packs, checks that <code>claude -p</code> answers, registers the <code>no-claudian</code> skill in the project, and runs a smoke test. <mark>No package manager, no admin rights.</mark> As a Claude Code plugin instead:</mark></p>
+<pre class="code"><code>/plugin marketplace add Fermi-Ventures/claudian-translator
+/plugin install claudian-translator@claudian-translator</code></pre>
+<p>By hand: <code>git clone</code> the repo, then <code>node cli.mjs install --into &lt;your project&gt;</code>. <code>node cli.mjs doctor</code> reports the state at any time, including whether pandoc is present for Word documents.</p>
+<h2>How to use</h2>
+<ul><li><em>"Claude, produce user documentation for my engineers. No Claudian."</em></li><li><em>"Claude, that sounds Claudian."</em></li><li><em>"Claude, produce user documentation for my engineers. Estimate token consumption to remove Claudian."</em></li></ul>
+<p><mark>The first runs the translator on the document Claude just wrote and hands you the finished document. The second runs it on the passage you point at, or on Claude's last answer if you point at nothing, and shows you the before and after. The third prints sentences, calls, dollars and minutes before anything is spent. In each case you get a sentence or two on what changed and, if the translator needed something only you know, a question. You never read a table unless you ask to.</mark></p>
+<h3>What a run does</h3>
+<ol><li><strong>Counts.</strong> Vale and the counters read the whole file for free: sentence length, readability, semicolons, every phrase on the team's lists, and the paragraph shapes (uniform rhythm, uniform paragraph length, lead-in labels, kickers, triads, closers, signposts).</li><li><strong>Moves paragraph breaks</strong> if the paragraph lengths are uniform. One Sonnet call may merge two short neighbours or split a long paragraph at a sentence. Its gate is exact: every word must be identical before and after, so it cannot invent.</li></ol>
+<p><mark>3. <strong>Reshapes each flagged paragraph.</strong> One Sonnet call per paragraph, with the counts as evidence and formatting kept. The rules forbid the cheap fix of joining sentences with a dash or a semicolon. The gate is the same as for a sentence, plus a length band and a count of every mark (links, code spans, emphasis, headings, list markers) before and after.</mark></p>
+<ol><li><strong><mark>Finds the sentences.</mark></strong> Haiku reads each sentence with its paragraph and flags insider prose. The counters flag form.</li><li><strong>Rewrites each flagged sentence</strong> by shape, with Sonnet, under the writing rules in <code>PLAYBOOK.md</code>. A run of short fragments is folded into one sentence of the same length, never expanded.</li><li><strong>Gates every rewrite.</strong> <mark>Counters refuse a rewrite that adds an obligation word, changes the number of negations, swaps a word for its opposite, keeps a reason inside the rule, or balloons.</mark> Sonnet is asked one narrow question, whether the rewrite applies to a different who, what or where, and a yes refuses.</li><li><strong>Applies what passed</strong> and hands the rest back.</li></ol>
+<p><mark>Every call goes through a pool with a requests-per-minute cap (<code>--rpm</code>, default 40), a concurrency limit (<code>--jobs</code>, default 8), three attempts with backoff, and a pause when a response looks rate-limited. The summary line reports calls, retries and pauses. <code>--no-structure</code> skips steps 2 and 3. <code>--by paragraph</code> batches steps 5 and 6 by paragraph, which halves the calls at a small cost measured in <code>PLAYBOOK.md</code>.</mark></p>
+<h3>What Claude works from</h3>
+<p>Three files sit next to the document. They are Claude's working material. You see the document and a short report, and you can ask for any of them.</p>
+<ul><li><code>&lt;doc&gt;.translated.md</code> is the document with everything that passed the gate applied.</li><li><code>&lt;doc&gt;.translation.md</code> is the story: what happened to the paragraphs, then a table of every flagged sentence with its shape, the original, the rewrite and a note. Rows marked <strong>kept</strong> need something the translator did not have, and the note says what. Claude supplies it when it can. Rows marked <strong>proposed, not applied</strong> are rewrites the gate refused, and the note names why. Claude fixes those by hand or leaves the sentence as it was. Neither is applied by the tool.</li><li><code>&lt;doc&gt;.translation.json</code> is the same as pairs, for a program or a Claude session: for each, its <code>level</code>, its <code>status</code>, <code>before</code> exactly as it sat in the file, <code>after</code>, a word-level <code>diff</code> in <code>[-old-]{+new+}</code> notation, and the note.</li></ul>
+<h3>When the text lives inside something else</h3>
+<p><mark>The translator reads markdown or plain text and nothing else, on purpose. A Word document, a Google document, an HTML page, a React component, a JSON resource file, a CMS field: the Claude session running the skill is the adapter. It can see the container and the tool cannot. It extracts the prose to a text file, runs the translator, and patches each applied pair from the JSON back where its <code>before</code> came from, verbatim, keeping every mark, tag and attribute around it. <mark>The diff tells it which words kept their place, so their marks carry over, and which are new, where a mark is a decision.</mark> For Word there is a short cut: pandoc out, translate, pandoc back with the original as the style reference, then compare the marks on both sides. Measured once, a page with a link, four code spans, six italics and six bolds came back from Word with every mark intact.</mark></p>
+<p><code>PLAYBOOK.md</code> has the prompts, the writing rules, the calibration procedure and the failure modes, for anyone who wants to rebuild this from parts.</p>
+<h2>Solution workflow</h2>
+<div class="diagram"><pre class="mermaid">
+flowchart TB
+  T["Text to review\na rule, a spec, a brief, or prose extracted from any container"] --> V
+  subgraph D["Deterministic half — free, no variance"]
+    V["Vale, the sentence counters and the paragraph counters\nreadability · sentence length · semicolons · known phrases\nuniform rhythm · lead-in labels · kickers · triads"]
+  end
+  subgraph S["Paragraph phases — Sonnet, gated"]
+    B["Phase 0: move paragraph breaks only\ngate: every word identical"]
+    R["Phase 1: reshape a flagged paragraph\ngate: the counters, the marks, the target check"]
+    B --> R
+  end
+  V --> B
+  R --> F
+  subgraph M["Sentence phases — Haiku finds, Sonnet rewrites"]
+    F["Find\nHaiku, one call per sentence"]
+    W["Rewrite\nSonnet, one call per flagged sentence, by shape"]
+    C["Gate\ncounters: obligation words, negations, polarity, reasons, length\nSonnet: a different who, what or where"]
+    F --> W --> C
+  end
+  C --> O["The document, rewrites applied\nplus a short table of what changed and what was held, with before, after and diff"]
+  O --> H["Claude reads the table, fixes what it can, tells you what changed\nand asks you about anything it still needs"]
+  O -. "when the text came out of Word, HTML or code" .-> X["The Claude session patches the pairs back into the container"]
+  F -. "each phrase found becomes a list entry" .-> V
+  H -. "a send-back becomes a list entry" .-> V
+</pre></div>
+<p><mark>Two halves, two paragraph phases between them, one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. <mark>The paragraph phases fix the shape of the page under gates that cannot invent.</mark> <mark>The sentence phases read for meaning and rewrite, and the gate refuses the marks of invention.</mark> What reaches you is a finished document and a sentence or two on what changed. The table is Claude's to read. On the regression text, sixteen of twenty-one rows were done when the run ended and five carried a question, and Claude can answer most of those itself, since it wrote the text. It asks you about the rest. <mark>Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice.</mark> The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration files are the one store you keep.</mark></p>
+<h2>Analysis</h2>
+<h3>What it costs</h3>
+<p><mark>Two models do the work: Haiku reads every sentence, Sonnet reshapes the flagged paragraphs, rewrites the flagged sentences and answers the target question on each. At a 30 percent flag rate, which is what a first draft produces, a page of 400 words costs about twelve cents, of which the paragraph phases are about two. <code>node cli.mjs estimate &lt;file&gt;</code> prints the exact figure for your file before you spend anything.</mark></p>
+<div class="tablewrap"><table><thead><tr><th>document</th><th>Haiku calls (find)</th><th>Sonnet calls (paragraphs, rewrite, target check)</th><th>cost</th></tr></thead><tbody><tr><td>one page, 400 words, about 27 sentences</td><td>27</td><td>22</td><td>about $0.12</td></tr><tr><td>a ten-page document</td><td>270</td><td>220</td><td>about $1.20</td></tr><tr><td>this README, measured with <code>estimate</code></td><td>108</td><td>104</td><td>$0.51</td></tr><tr><td>the same at a 10 percent flag rate, prose that has already been edited once</td><td>108</td><td>62</td><td>$0.33</td></tr></tbody></table></div>
+<p><mark>Prices are the public list at the time of writing (Haiku $1 in and $5 out per million tokens, Sonnet $3 and $15). Edit <code>PRICES</code> at the top of <code>tools/translate.mjs</code> if yours differ. Batching by paragraph is available and is not the default: measured, Haiku stops flagging the strongest sentences when it reads them in a batch, and the saving on a small document is a few cents.</mark></p>
+<h3>How we know it does not invent</h3>
+<p><mark>The first version of the converter had no gate. On the regression text it rewrote twelve sentences and three of them said more than the original, and one turned a statement of evidence into a new obligation. So the gate was built and calibrated on labelled pairs: fourteen rewrites a human reviewer had accepted, six inventions from those early runs, four inversions of the kind a safety manual cannot survive (a dropped <em>not</em>, <em>never</em> to <em>always</em>, <em>never return false</em> to <em>do not return true</em>), and six swaps of who, what or where (<em>children</em> to <em>adults</em>, <em>in a bathtub</em> to <em>near a bathtub</em>, <em>validator</em> to <em>parser</em>).</mark></p>
+<p><mark><mark>A Sonnet call asked "does the rewrite mean the same" accepted 4 of the first 12 good rewrites and let 2 of the 6 inventions through, in one framing, and 5 and 5 in another: near chance both times, so that question was dropped.</mark> Sonnet is asked one narrow question instead: does the rewrite apply to a different who, what or where than the original? On first calibration it caught every swap in the set with two false alarms. <mark>Counters decide the rest.</mark> A rewrite is refused if it adds an obligation word (<em>must</em>, <em>never</em>, <em>only</em>), changes the number of negations (a dropped <em>not</em> is how "do not operate in a bathtub" becomes "operate in a bathtub"), swaps a word for its opposite from a fixed list (<em>true</em> for <em>false</em>, <em>on</em> for <em>off</em>, <em>allow</em> for <em>deny</em>), keeps a reason inside the rule, or runs past 2.5 times the original's length. Either refusing holds the rewrite.</mark></p>
+<p><mark>On 32 labelled pairs, 16 good and 16 bad, the gate refuses 13 of the 16 bad rewrites and accepts 10 of the 16 good ones. The six good rewrites it holds each introduced a <em>not</em> while saying a metaphor plainly, or named a person the target check read as a new target, and holding is the side to err on. What it missed: two rewrites that supplied a plausible definition from outside the paragraph, which no counter sees and the target question does not ask about, and one place swap the model caught on one run and missed on the next. A model answer varies between runs. A counter does not. Those are yours to catch, and the table is short enough that you can. Do not run this on text where an inverted sentence can hurt someone unless a person reads every applied row.</mark></p>
+<h3>What the numbers are, and are not</h3>
+<p>Thirty-two pairs and twenty-five labelled sentences are calibration sets, not samples. They exist so that every change to a prompt or a counter is run against the same pass/fail set before it ships (<code>node cli.mjs calibrate</code>, <code>node cli.mjs calibrate --check</code>), and the finder's figures on its set (Haiku precision 0.77 and recall 0.83, Sonnet 0.69 and 0.92) are read the same way: a regression line, not a claim about all prose. The paragraph counters have a first calibration of one human-written document against six machine-written ones, recorded in <code>tests/paragraphs.calibration.md</code> with the same warning. Add your own reviewer's send-backs to the calibration files and the numbers become yours.</p>
+<h2>Layout</h2>
+<pre class="code"><code>README.md                         this document
+INSTALL.md                        what "install" means, written for an agent
+PLAYBOOK.md                       prompts, writing rules, calibration, failure modes, what was measured
+cli.mjs                           install · doctor · lint · paragraphs · translate · estimate · calibrate
+.claude-plugin/                   plugin and marketplace manifests
+skills/no-claudian/               the skill behind "No Claudian", including the container steps
+tools/translate.mjs               phases 0 and 1, find → rewrite → gate → apply, --estimate, --calibrate-check, --calibrate-find
+tools/paragraphs.mjs              the paragraph counters, as a tool and a module
+tools/claudian.mjs                the finder alone (and --calibrate)
+tools/plain-reader.mjs            the two-reader diff and the strict probe
+tools/hygiene-sweep.mjs           the sentence counters; zero-dependency fallback
+vale/.vale.ini                    the Vale configuration (markdown, MDX, HTML, plain text)
+vale/styles/Team/                 Semicolon · Justification · Insider · InsiderWord · AITells · Personified
+vale/styles/Slopster/             vendored generic AI-tells style (MIT; see PROVENANCE.md)
+tests/before.md                   the regression text: the before column, in prose, plus three controls
+tests/fidelity.calibration.json   labelled rewrite pairs: the gate's regression test
+tests/claudian.calibration.json   labelled sentences: the finder's regression test
+tests/paragraphs.calibration.md   the paragraph counters' first calibration
+tests/insider.literal-controls.md literal uses that the lists must not flag</code></pre></div>
+    <div class="doc doc-b" id="doc-b" hidden><h1>Claudian Translator</h1>
+<p>Claudian Translator converts Claude prose to text intended for humans.</p>
+<p>"Claudian" is prose written for the conversation that produced it. <mark>It reads fluently to the people who were there and stops everyone else. It uses a coined phrase as if it had been defined, lets a metaphor carry the meaning, folds a reason into a rule, welds three obligations into one sentence, renders bullets horizontally, and lets an abstraction do a person's job.</mark> A page of it has a shape too. Paragraphs all the same length, each opening with a bold label and closing on a short punchline, read as machine-made before a word is read.</p>
+<p><mark>The translator reshapes the paragraphs, then rewrites each sentence for a reader who was not in the room. Every rewrite passes a gate that refuses the marks of invention. Claude reads the result, fixes what it can, and tells you what changed. Its scope is text. Any container the text lives in is the job of the Claude session that runs it.</mark></p>
+<h2>What this does</h2>
+<p><mark>Nobody marks the sentences. The translator finds them. Below is one run of <code>node cli.mjs translate tests/before.md</code>, showing each sentence as it was written and what came back. Another run will word the rewrites differently. The shapes and the outcomes hold.</mark></p>
+<div class="tablewrap"><table><thead><tr><th>shape</th><th>before</th><th>after</th></tr></thead><tbody><tr><td>metaphor as definition</td><td>A copy you did not write is still only evidence of its moment — re-derive before relying.</td><td>A copy you did not write reflects only the state of the source when it was copied. Re-derive it before relying on it.</td></tr><tr><td>metaphor as instruction</td><td>A reason that keeps recurring is a backlog item wearing a footnote's clothes.</td><td>A reason that keeps recurring should be tracked as a backlog item, not written as a footnote.</td></tr><tr><td>metaphor as rule</td><td>The census is a burn-down, not an amnesty.</td><td>The census tracks how many backlog items remain, but it does not excuse or forgive the items still on it.</td></tr><tr><td>reason inside the rule</td><td>The chain counts as a site because it is the tell — the defect this rule exists to find.</td><td>The chain is counted as a site.<br><br><em>Moved out for the author to place as a note: the chain is the defect this rule exists to find.</em></td></tr><tr><td>an abstraction in a person's role</td><td>Standards, specs and agent briefs written inside a long AI-assisted conversation come out readable only to that conversation.</td><td>Standards, specs and agent briefs written inside a long AI-assisted conversation come out readable only to the people who were in that conversation.</td></tr><tr><td>bullets rendered horizontally</td><td>Two lanes and one loop. The linter counts and remembers. The models read and discover. The reviewer decides.</td><td>Two lanes, one loop: the linter counts and remembers, the models read and discover, and the reviewer decides.</td></tr><tr><td>run-on sentence: 57 words, one condition, three obligations</td><td>If an attribute's legal next value depends on its current value and it meets the threshold below, it is a state machine: it belongs to a named machine definition from the first migration in which it qualifies, and a nested or parallel lifecycle is expressed in the definition, never as a loop or branch in an executor.</td><td><strong>Proposed, held for a person.</strong> If an attribute's legal next value depends on its current value and it meets the threshold below, it is a state machine.<br><br>It must belong to a named machine definition, starting from the first migration in which it qualifies.<br><br>Any nested or parallel lifecycle must be expressed in that definition, not written as loop or branch logic in the code that runs it.<br><br><em>Held: the split added a "must" the original did not have. Accept it or change one word.</em></td></tr><tr><td>coined noun</td><td>The forcing function is the machine census.</td><td><strong>Kept, with a question.</strong> <em>The author must supply what "the machine census" is: a script, a CI job, a tool. The paragraph never says.</em></td></tr></tbody></table></div>
+<p>A rewrite that passed the gate is applied. A rewrite that shows a mark of invention is proposed and held. <mark>When a sentence can't be rewritten without knowledge only the author has, the translator keeps it and attaches the question whose answer would supply that knowledge.</mark> <mark>The translator never blocks a document. It never overrides the author.</mark> Claude reads the table. It answers the kept rows itself when it knows the answer, which it usually does, since it wrote the document, and it brings you the rest.</p>
+<p><mark>At the paragraph level the same run on a flat page (eleven paragraphs of about a hundred words each, every one flagged) moved breaks so that eleven paragraphs became thirteen of clearly different lengths, with the words checked identical. It reshaped nine of the twelve it then flagged, dropping the bold labels and the punchlines, without introducing a single dash or semicolon. The page came out with no document-level flag.</mark></p>
+<h2>How to install</h2>
+<p>Give Claude the link and say <strong>install</strong>.</p>
+<ol><li><em>"Claude, evaluate https://github.com/Fermi-Ventures/claudian-translator for security risks. If clean, install it here."</em></li><li>Celebrate.</li></ol>
+<p><code>INSTALL.md</code> is what Claude reads: a security read first, then one command. <code>node cli.mjs install</code> finds Vale or downloads its release binary for the platform, syncs the style packs, checks that <code>claude -p</code> answers, registers the <code>no-claudian</code> skill in the project, and runs a smoke test. <mark>It requires no package manager and no admin rights.</mark></p>
+<pre class="code"><code>/plugin marketplace add Fermi-Ventures/claudian-translator
+/plugin install claudian-translator@claudian-translator</code></pre>
+<p>By hand: <code>git clone</code> the repo, then <code>node cli.mjs install --into &lt;your project&gt;</code>. <code>node cli.mjs doctor</code> reports the state at any time, including whether pandoc is present for Word documents.</p>
+<h2>How to use</h2>
+<ul><li><em>"Claude, produce user documentation for my engineers. No Claudian."</em></li><li><em>"Claude, that sounds Claudian."</em></li><li><em>"Claude, produce user documentation for my engineers. Estimate token consumption to remove Claudian."</em></li></ul>
+<p><mark>The first runs the translator on the document Claude just wrote and hands you the finished document. The second runs on the passage you point at, or, if you point at nothing, on Claude's last answer, showing you the before and after. The third prints sentences, calls, dollars and minutes before anything is spent. In each case you get a sentence or two on what changed and, if the translator needed something only you know, a question. You never read a table unless you ask to.</mark></p>
+<h3>What a run does</h3>
+<ol><li><strong>Counts.</strong> Vale and the counters read the whole file for free: sentence length, readability, semicolons, every phrase on the team's lists, and the paragraph shapes (uniform rhythm, uniform paragraph length, lead-in labels, kickers, triads, closers, signposts).</li><li><strong>Moves paragraph breaks</strong> if the paragraph lengths are uniform. One Sonnet call may merge two short neighbours or split a long paragraph at a sentence. Its gate is exact: every word must be identical before and after, so it cannot invent.</li></ol>
+<p><mark>3. <strong>Reshapes each flagged paragraph.</strong> One Sonnet call handles each paragraph, using the counts as evidence and keeping the formatting intact. The rules forbid the cheap fix of joining sentences with a dash or a semicolon. The gate matches the one used for a sentence, but it adds a length band and a count of every mark (links, code spans, emphasis, headings, list markers) taken before and after.</mark></p>
+<ol><li><strong><mark>Haiku finds the sentences.</mark></strong> Haiku reads each sentence with its paragraph and flags insider prose. The counters flag form.</li><li><strong>Rewrites each flagged sentence</strong> by shape, with Sonnet, under the writing rules in <code>PLAYBOOK.md</code>. A run of short fragments is folded into one sentence of the same length, never expanded.</li><li><strong>Gates every rewrite.</strong> <mark>Counters refuse a rewrite that adds an obligation word, changes the number of negations, swaps a word for its opposite, folds a reason back into the sentence instead of setting it apart as a separate note, or balloons.</mark> <mark>Sonnet is asked one narrow question: whether the rewrite applies to a different who, what, or where. If the answer is yes, the gate rejects the rewrite.</mark> <strong>Applies what passed</strong> and hands the rest back.</li></ol>
+<p><mark>Every call goes through a pool with a requests-per-minute cap (<code>--rpm</code>, default 40), a concurrency limit (<code>--jobs</code>, default 8), three attempts with backoff, and a pause when a response looks rate-limited. The summary line reports calls, retries and pauses. <code>--no-structure</code> skips steps 2 and 3. <code>--by paragraph</code> batches steps 5 and 6 by paragraph, which halves the calls at a small cost measured in <code>PLAYBOOK.md</code>.</mark></p>
+<h3>What Claude works from</h3>
+<p>Three files sit next to the document. They are Claude's working material. You see the document and a short report, and you can ask for any of them.</p>
+<ul><li><code>&lt;doc&gt;.translated.md</code> is the document with everything that passed the gate applied.</li><li><code>&lt;doc&gt;.translation.md</code> is the story: what happened to the paragraphs, then a table of every flagged sentence with its shape, the original, the rewrite and a note. Rows marked <strong>kept</strong> need something the translator did not have, and the note says what. Claude supplies it when it can. Rows marked <strong>proposed, not applied</strong> are rewrites the gate refused, and the note names why. Claude fixes those by hand or leaves the sentence as it was. Neither is applied by the tool.</li><li><code>&lt;doc&gt;.translation.json</code> is the same as pairs, for a program or a Claude session: for each, its <code>level</code>, its <code>status</code>, <code>before</code> exactly as it sat in the file, <code>after</code>, a word-level <code>diff</code> in <code>[-old-]{+new+}</code> notation, and the note.</li></ul>
+<h3>When the text lives inside something else</h3>
+<p>The translator reads markdown or plain text and nothing else, on purpose. A Word document, a Google document, an HTML page, a React component, a JSON resource file, a CMS field: the Claude session running the skill is the adapter. It can see the container and the tool cannot. It extracts the prose to a text file and runs the translator. Then it patches each applied pair from the JSON back where its <code>before</code> came from, verbatim, keeping every mark, tag and attribute around it. <mark>The diff tells it which words kept their place, so their marks carry over. For words that are new, the session decides whether to give them a mark.</mark> For Word there is a short cut: pandoc out, translate, pandoc back with the original as the style reference, then compare the marks on both sides. Measured once, a page with a link, four code spans, six italics and six bolds came back from Word with every mark intact.</p>
+<p><code>PLAYBOOK.md</code> has the prompts, the writing rules, the calibration procedure and the failure modes, for anyone who wants to rebuild this from parts.</p>
+<h2>Solution workflow</h2>
+<div class="diagram"><pre class="mermaid">
+flowchart TB
+  T["Text to review\na rule, a spec, a brief, or prose extracted from any container"] --> V
+  subgraph D["Deterministic half — free, no variance"]
+    V["Vale, the sentence counters and the paragraph counters\nreadability · sentence length · semicolons · known phrases\nuniform rhythm · lead-in labels · kickers · triads"]
+  end
+  subgraph S["Paragraph phases — Sonnet, gated"]
+    B["Phase 0: move paragraph breaks only\ngate: every word identical"]
+    R["Phase 1: reshape a flagged paragraph\ngate: the counters, the marks, the target check"]
+    B --> R
+  end
+  V --> B
+  R --> F
+  subgraph M["Sentence phases — Haiku finds, Sonnet rewrites"]
+    F["Find\nHaiku, one call per sentence"]
+    W["Rewrite\nSonnet, one call per flagged sentence, by shape"]
+    C["Gate\ncounters: obligation words, negations, polarity, reasons, length\nSonnet: a different who, what or where"]
+    F --> W --> C
+  end
+  C --> O["The document, rewrites applied\nplus a short table of what changed and what was held, with before, after and diff"]
+  O --> H["Claude reads the table, fixes what it can, tells you what changed\nand asks you about anything it still needs"]
+  O -. "when the text came out of Word, HTML or code" .-> X["The Claude session patches the pairs back into the container"]
+  F -. "each phrase found becomes a list entry" .-> V
+  H -. "a send-back becomes a list entry" .-> V
+</pre></div>
+<p>Two halves sit with two paragraph phases between them, closed into one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. <mark>The paragraph phases set the page's layout, and a gate blocks any addition that was not already present in the source.</mark> <mark>The sentence phases read for meaning and rewrite, and a separate check rejects any rewrite that shows signs of added or invented content.</mark> What reaches you is a finished document and a sentence or two on what changed. The table is Claude's to read. On the regression text, sixteen of twenty-one rows were done when the run ended, and five carried a question. Claude can answer most of those itself, since it wrote the text. It asks you about the rest. <mark>Every phrase a model or the human names is added to the list of phrases the deterministic half matches against. That way, more of the text is handled by that deterministic matching rather than a model reading it, and the model never re-reads the same phrase for meaning once it has been listed.</mark> The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration files are the one store you keep.</p>
+<h2>Analysis</h2>
+<h3>What it costs</h3>
+<p><mark>Two models do the work: Haiku reads every sentence, Sonnet reshapes the flagged paragraphs and rewrites the flagged sentences. Sonnet also answers the target question on each. At a 30 percent flag rate, which is what a first draft produces, a page of 400 words costs about twelve cents, of which the paragraph phases are about two. <code>node cli.mjs estimate &lt;file&gt;</code> prints the exact figure for your file before you spend anything.</mark></p>
+<div class="tablewrap"><table><thead><tr><th>document</th><th>Haiku calls (find)</th><th>Sonnet calls (paragraphs, rewrite, target check)</th><th>cost</th></tr></thead><tbody><tr><td>one page, 400 words, about 27 sentences</td><td>27</td><td>22</td><td>about $0.12</td></tr><tr><td>a ten-page document</td><td>270</td><td>220</td><td>about $1.20</td></tr><tr><td>this README, measured with <code>estimate</code></td><td>108</td><td>104</td><td>$0.51</td></tr><tr><td>the same at a 10 percent flag rate, prose that has already been edited once</td><td>108</td><td>62</td><td>$0.33</td></tr></tbody></table></div>
+<p>Prices are the public list at the time of writing (Haiku $1 in and $5 out per million tokens, Sonnet $3 and $15). Edit <code>PRICES</code> at the top of <code>tools/translate.mjs</code> if yours differ. Batching by paragraph is available but is not the default. <mark>In testing, batching by paragraph caused Haiku to stop flagging the strongest sentences when it read them together, and the saving on a small document is a few cents.</mark></p>
+<h3>How we know it does not invent</h3>
+<p><mark>The first version of the converter had no gate. On the regression text it rewrote twelve sentences. Three of them said more than the original, and one turned a statement of evidence into a new obligation. The gate was built and calibrated on labelled pairs: fourteen rewrites a human reviewer had accepted, six inventions from those early runs, four inversions of the kind a safety manual cannot survive (a dropped <em>not</em>, <em>never</em> to <em>always</em>, <em>never return false</em> to <em>do not return true</em>), and six swaps of who, what or where (<em>children</em> to <em>adults</em>, <em>in a bathtub</em> to <em>near a bathtub</em>, <em>validator</em> to <em>parser</em>).</mark></p>
+<p><mark>A Sonnet call asked "does the rewrite mean the same?" In one framing it accepted 4 of the first 12 good rewrites and let 2 of the 6 inventions through. In another framing it accepted 5 of the first 12 and 5 of the 6. The results were near chance both times, so that question was dropped.</mark> Sonnet is asked one narrow question instead: does the rewrite apply to a different who, what or where than the original? On first calibration it caught every swap in the set with two false alarms. <mark>The rest is decided by fixed, mechanical checks.</mark> A rewrite is refused if it adds an obligation word (<em>must</em>, <em>never</em>, <em>only</em>), changes the number of negations (a dropped <em>not</em> is how "do not operate in a bathtub" becomes "operate in a bathtub"), swaps a word for its opposite from a fixed list (<em>true</em> for <em>false</em>, <em>on</em> for <em>off</em>, <em>allow</em> for <em>deny</em>), keeps a reason inside the rule, or runs past 2.5 times the original's length: any one of these, or a failed swap check, is enough to hold the rewrite.</p>
+<p>On 32 labelled pairs, 16 good and 16 bad, the gate refuses 13 of the 16 bad rewrites and accepts 10 of the 16 good ones. The six good rewrites it holds each introduced a <em>not</em> while saying a metaphor plainly, or named a person the target check read as a new target. <mark>When the gate is uncertain, it should err toward rejecting a rewrite rather than accepting it.</mark> What it missed: two rewrites that supplied a plausible definition from outside the paragraph, which no counter sees and the target question does not ask about, and one place swap the model caught on one run and missed on the next. A model answer varies between runs where a counter does not. Those are yours to catch, and the table is short enough that you can. Do not run this on text where an inverted sentence can hurt someone unless a person reads every applied row.</p>
+<h3>What the numbers are, and are not</h3>
+<p>Thirty-two pairs and twenty-five labelled sentences are calibration sets, not samples. They exist so that every change to a prompt or a counter is run against the same pass/fail set before it ships (<code>node cli.mjs calibrate</code>, <code>node cli.mjs calibrate --check</code>), and the finder's figures on its set (Haiku precision 0.77 and recall 0.83, Sonnet 0.69 and 0.92) are read the same way: a regression line, not a claim about all prose. The paragraph counters have a first calibration of one human-written document against six machine-written ones, recorded in <code>tests/paragraphs.calibration.md</code> with the same warning. Add your own reviewer's send-backs to the calibration files and the numbers become yours.</p>
+<h2>Layout</h2>
+<pre class="code"><code>README.md                         this document
+INSTALL.md                        what "install" means, written for an agent
+PLAYBOOK.md                       prompts, writing rules, calibration, failure modes, what was measured
+cli.mjs                           install · doctor · lint · paragraphs · translate · estimate · calibrate
+.claude-plugin/                   plugin and marketplace manifests
+skills/no-claudian/               the skill behind "No Claudian", including the container steps
+tools/translate.mjs               phases 0 and 1, find → rewrite → gate → apply, --estimate, --calibrate-check, --calibrate-find
+tools/paragraphs.mjs              the paragraph counters, as a tool and a module
+tools/claudian.mjs                the finder alone (and --calibrate)
+tools/plain-reader.mjs            the two-reader diff and the strict probe
+tools/hygiene-sweep.mjs           the sentence counters; zero-dependency fallback
+vale/.vale.ini                    the Vale configuration (markdown, MDX, HTML, plain text)
+vale/styles/Team/                 Semicolon · Justification · Insider · InsiderWord · AITells · Personified
+vale/styles/Slopster/             vendored generic AI-tells style (MIT; see PROVENANCE.md)
+tests/before.md                   the regression text: the before column, in prose, plus three controls
+tests/fidelity.calibration.json   labelled rewrite pairs: the gate's regression test
+tests/claudian.calibration.json   labelled sentences: the finder's regression test
+tests/paragraphs.calibration.md   the paragraph counters' first calibration
+tests/insider.literal-controls.md literal uses that the lists must not flag</code></pre></div>
+  </div>
+</main>
+<script>
+(function () {
+  var a = document.getElementById('doc-a'), b = document.getElementById('doc-b');
+  var ba = document.getElementById('btn-a'), bb = document.getElementById('btn-b'), chk = document.getElementById('chk'), count = document.getElementById('count');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function marks() { try { document.body.classList.toggle('marks', chk.checked); } catch (e) {} }
+  function show(which) {
+    var from = which === 'b' ? a : b, to = which === 'b' ? b : a;
+    ba.setAttribute('aria-pressed', which === 'a'); bb.setAttribute('aria-pressed', which === 'b');
+    if (reduce) { from.hidden = true; to.hidden = false; return; }
+    var y = window.scrollY;
+    to.hidden = false; to.style.opacity = 0; from.style.opacity = 1;
+    requestAnimationFrame(function () { from.style.opacity = 0; to.style.opacity = 1; });
+    setTimeout(function () { from.hidden = true; window.scrollTo(0, y); }, 460);
+    try { localStorage.setItem('ct-view', which); } catch (e) {}
+  }
+  ba.addEventListener('click', function () { show('a'); });
+  bb.addEventListener('click', function () { show('b'); });
+  chk.addEventListener('change', marks);
+  document.addEventListener('keydown', function (e) { if (e.key === 't' || e.key === 'T') show(a.hidden ? 'a' : 'b'); });
+  count.textContent = 41 + ' passages changed · press T to toggle';
+  marks();
+  try { if (localStorage.getItem('ct-view') === 'b') { a.hidden = true; b.hidden = false; ba.setAttribute('aria-pressed', 'false'); bb.setAttribute('aria-pressed', 'true'); } } catch (e) {}
+})();
+</script>
+<script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"; mermaid.initialize({ startOnLoad: true, theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "neutral" });</script></body></html>

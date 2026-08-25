@@ -8,7 +8,7 @@ The translator works at both levels. It reshapes the paragraphs, then finds the 
 
 ## What this does
 
-Nobody marks the sentences. The translator finds them. Below is one run of `node cli.mjs translate tests/before.md`: each sentence as it was written, and what came back. Another run will word the rewrites differently. The shapes and the outcomes hold.
+Nobody marks the sentences. The translator finds them. It found plenty in this page: `docs/index.html` shows this README as written and as translated by its own tool, with a switch between the two and every changed passage marked (GitHub Pages serves it when enabled; the translated text and the table are in `docs/` either way). Below is one run of `node cli.mjs translate tests/before.md`: each sentence as it was written, and what came back. Another run will word the rewrites differently. The shapes and the outcomes hold.
 
 | shape | before | after |
 |---|---|---|

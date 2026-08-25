@@ -6,3 +6,4 @@ vale/styles/*
 # translator outputs
 *.translation.md
 *.translated.md
+.bin/

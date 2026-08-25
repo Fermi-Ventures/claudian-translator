@@ -1,0 +1,6 @@
+{
+  "name": "claudian-translator",
+  "description": "Converts Claude prose to text intended for humans. Adds the no-claudian skill: say \"No Claudian\" and the document is run through the translator.",
+  "version": "0.2.0",
+  "author": { "name": "Fermi Ventures" }
+}

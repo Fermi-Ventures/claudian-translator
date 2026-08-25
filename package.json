@@ -1,0 +1,15 @@
+{
+  "name": "claudian-translator",
+  "version": "0.2.0",
+  "description": "Converts Claude prose to text intended for humans: finds the sentences only the drafting conversation can read, rewrites them by shape, gates the rewrite, hands the rest to a person.",
+  "type": "module",
+  "bin": { "claudian-translator": "./cli.mjs" },
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "install-tools": "node cli.mjs install",
+    "doctor": "node cli.mjs doctor",
+    "test": "node cli.mjs estimate README.md && node cli.mjs lint tests/insider.literal-controls.md"
+  },
+  "repository": { "type": "git", "url": "https://github.com/Fermi-Ventures/claudian-translator.git" },
+  "private": true
+}

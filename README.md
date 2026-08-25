@@ -21,31 +21,48 @@ Every "before" below was sent back by a human reviewer or flagged by the transla
 
 ## How to install
 
-1. *"Claude, evaluate this link for security risks. If clean, implement it here."* — `INSTALL.md` tells Claude what to read, what the tools touch, and where to put things.
+Give Claude the link and say **install**.
+
+1. *"Claude, evaluate https://github.com/Fermi-Ventures/claudian-translator for security risks. If clean, install it here."*
 2. Celebrate.
 
-By hand: clone the repo into your project, install [Vale](https://vale.sh), run `vale sync` inside `vale/`, confirm `claude -p` answers, and copy `.claude/skills/no-claudian/` into your project's `.claude/skills/`.
+`INSTALL.md` is what Claude reads: a security read first, then one command. `node cli.mjs install` finds Vale or downloads its release binary for the platform, syncs the style packs, checks that `claude -p` answers, registers the `no-claudian` skill in the project, and runs a smoke test. No package manager, no admin rights. As a Claude Code plugin instead:
+
+```
+/plugin marketplace add Fermi-Ventures/claudian-translator
+/plugin install claudian-translator@claudian-translator
+```
+
+By hand: `git clone` the repo, then `node cli.mjs install --into <your project>`. `node cli.mjs doctor` reports the state at any time.
 
 ## How to use
 
 - *"Claude, produce user documentation for my engineers. No Claudian."*
 - *"Claude, produce user documentation for my engineers. Estimate token consumption to remove Claudian."*
 
-The skill runs `tools/translate.mjs` on the document. You get two files back: `<doc>.translation.md`, a table of every flagged sentence with its shape, the original, the rewrite and a note, and `<doc>.translated.md`, the document with the rewrites that passed the gate applied. Sentences marked **kept** need something only the author knows, and the note says what. Sentences marked **proposed, not applied** are rewrites the gate refused: a new obligation word, a reason left inside the rule, or a rewrite far longer than the original, which is what invention looks like. They are never applied without a person.
+The skill runs `cli.mjs translate` on the document. You get two files back: `<doc>.translation.md`, a table of every flagged sentence with its shape, the original, the rewrite and a note, and `<doc>.translated.md`, the document with the rewrites that passed the gate applied. Sentences marked **kept** need something only the author knows, and the note says what. Sentences marked **proposed, not applied** are rewrites the gate refused: a new obligation word, a reason left inside the rule, or a rewrite far longer than the original, which is what invention looks like. They are never applied without a person.
 
 By hand:
 
 ```sh
-node tools/translate.mjs doc.md                      # find (cheap model), rewrite (strong model), gate (counters), apply
-node tools/translate.mjs doc.md --estimate --rate 0.3   # no model calls: sentences, tokens, dollars, minutes
-vale --config vale/.vale.ini --output=line doc.md    # the free lint on its own
+node cli.mjs translate doc.md              # find (cheap model), rewrite (strong model), gate (counters), apply
+node cli.mjs estimate doc.md --rate 0.3    # no model calls: sentences, tokens, dollars, minutes
+node cli.mjs lint doc.md                   # the free Vale lint on its own
 ```
 
 `PLAYBOOK.md` has the prompts, the writing rules, the calibration procedure and the failure modes, for anyone who wants to rebuild this from parts.
 
 ## Analysis
 
-The translator was measured on rule text. On the shortest returned standard the lane found ten defects between the returned text and the current one, and all ten are resolved: four of form, two ambiguities a busy reader resolves the wrong way, two insider phrases or reasons placed inside a rule, one candidate contradiction, and one clause that failed to reach its reader. The counters found the four form defects for nothing, and two of those four had passed every model reader. The model steps found the six defects of meaning for about eight cents an iteration. On the regression text (`tests/before.md`, 24 sentences, the before column above plus three controls) the converter's first run, before any gate existed, flagged 17, rewrote 12 and kept 5 with a named reason. Three of the twelve rewrites said more than the original, and one turned a statement of evidence into a new obligation. With the gate, and with a run of fragments merged into one unit so it can be folded rather than expanded, the same text gives 21 units, 12 flagged, 7 applied, 2 refused and 3 kept. The two refusals are an invention at 3.4 times the original's length and a split that added a must. The three kept are the two sentences whose meaning only the author holds and the literal control. The folded hook came back as one sentence of the original's length. A gate now stands between the rewrite and the document, and it is deterministic: a rewrite that adds an obligation word, keeps a reason inside the rule, or runs past 2.5 times the original's length is refused and shown as a proposal. On 18 labelled pairs (12 reviewer-accepted rewrites, 6 inventions) the gate accepts 11 of the 12 and refuses 4 of the 6. A strong-model check asked "does the rewrite mean the same" was tried in two framings and scored 4 of 12 and 2 of 6 on the same pairs, near chance, so its verdict is printed as advice in the note and never decides. The cheap finder runs at precision 0.77 and recall 0.83 on 25 labelled sentences, the strong one at 0.69 and 0.92. Two of the reviewer's five send-backs that week were caught by no instrument. The human stays last. The table extrapolates the measured rates to 100 pages of end-user documentation, about 40,000 words, with the calls run eight at a time.
+**What it was measured on.** Rule text: two engineering standards drafted by AI agents and returned by a human reviewer five times in 48 hours. On the shortest returned standard the lane found ten defects between the returned text and the current one, and all ten are resolved: four of form, two ambiguities a busy reader resolves the wrong way, two insider phrases or reasons placed inside a rule, one candidate contradiction, and one clause that failed to reach its reader. The counters found the four form defects for nothing, and two of those four had passed every model reader. The model steps found the six defects of meaning for about eight cents an iteration. Two of the reviewer's five send-backs that week were caught by no instrument. The human stays last.
+
+**The finder.** On 25 labelled sentences (the reviewer's send-backs and the sentences they accepted), the cheap model runs at precision 0.77 and recall 0.83, the strong one at 0.69 and 0.92. A known phrase slips about one run in six unless a list remembers it, which is what the Team lists are for.
+
+**The gate.** The converter's first run on the regression text (`tests/before.md`: the before column above in prose, plus three controls) flagged 17 of 24 sentences, rewrote 12 and kept 5 with a named reason. Three of the twelve rewrites said more than the original, and one turned a statement of evidence into a new obligation. A strong-model check asked "does the rewrite mean the same" was calibrated on 18 labelled pairs (12 rewrites the reviewer accepted, 6 inventions) in two framings and scored 4 of 12 and 2 of 6, near chance, so its verdict is printed as advice and never decides. Three counters decide instead: a rewrite that adds an obligation word, keeps a reason inside the rule, or runs past 2.5 times the original's length is refused and shown as a proposal. On the same 18 pairs the counters accept 11 of the 12 and refuse 4 of the 6. The two inventions with no countable tell are the reader's to catch, and the table exists so they can.
+
+**The result.** With the gate, and with a run of fragments merged into one unit so it can be folded rather than expanded, the regression text gives 21 units, 12 flagged, 7 applied, 2 refused and 3 kept. The two refusals are an invention at 3.4 times the original's length and a split that added a *must*. The three kept are the two sentences whose meaning only the author holds and the literal control. The folded hook came back as one sentence of the original's length.
+
+**Cost for 100 pages.** About 40,000 words of end-user documentation, at the measured rates, with the calls run eight at a time.
 
 | step | what it catches | model spend, 100 pages | machine time | human time |
 |---|---|---|---|---|
@@ -83,10 +100,12 @@ Two halves and one loop. The deterministic half counts what can be counted and m
 
 ```
 README.md                         this document
-INSTALL.md                        what "implement it here" means, written for an agent
+INSTALL.md                        what "install" means, written for an agent
 PLAYBOOK.md                       prompts, writing rules, calibration, failure modes
-.claude/skills/no-claudian/       the skill behind "No Claudian"
-tools/translate.mjs               find → rewrite → check → apply; --estimate
+cli.mjs                           install · doctor · lint · translate · estimate · calibrate
+.claude-plugin/                   plugin and marketplace manifests
+skills/no-claudian/               the skill behind "No Claudian"
+tools/translate.mjs               find → rewrite → gate → apply; --estimate; --calibrate-check
 tools/claudian.mjs                the finder alone (and --calibrate)
 tools/plain-reader.mjs            the two-reader diff and the strict probe
 tools/hygiene-sweep.mjs           the counters; zero-dependency fallback
@@ -94,6 +113,7 @@ vale/.vale.ini                    the Vale configuration
 vale/styles/Team/                 Semicolon · Justification · Insider · InsiderWord · AITells · Personified
 vale/styles/Slopster/             vendored generic AI-tells style (MIT; see PROVENANCE.md)
 tests/before.md                   the regression text: the before column, in prose, plus three controls
+tests/fidelity.calibration.json   labelled rewrite pairs: the gate's regression test
 tests/claudian.calibration.json   labelled sentences: the finder's regression test
 tests/insider.literal-controls.md literal uses that the lists must not flag
 ```

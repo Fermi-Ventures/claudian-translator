@@ -11,8 +11,8 @@ description: Use when the user says "No Claudian", asks for prose free of Claudi
 
 1. Produce the document first, as asked. Save it as a file.
 2. Run the translator on it:
-   `node <translator>/tools/translate.mjs <file> --jobs 8`
-   where `<translator>` is where this repo was installed (see INSTALL.md).
+   `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs translate <file> --jobs 8`
+   `${CLAUDE_PLUGIN_ROOT}` is the repo root: the plugin root when installed as a plugin, or the path `node cli.mjs install` printed. If Vale or the packs are missing, run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs install` first.
 3. Read `<file>.translation.md`. Every row is one sentence: its shape, the original, the rewrite, and a note.
    - Rows marked applied are already in `<file>.translated.md`.
    - Rows marked **(kept)** could not be rewritten without knowledge only the author has. Supply it yourself if you have it, then rewrite the sentence by hand under the rules in PLAYBOOK.md §6; otherwise leave it and say so.
@@ -23,10 +23,10 @@ description: Use when the user says "No Claudian", asks for prose free of Claudi
 
 ## When the user asks to estimate token consumption
 
-Run `node <translator>/tools/translate.mjs <file> --estimate --rate <r>` and show the table it prints. Use `--rate 0.3` for a first draft and say that the rate is an assumption. If the user wants a measured number, run the translator once for real and report the actual flagged count.
+Run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs estimate <file> --rate <r>` and show the table it prints. Use `--rate 0.3` for a first draft and say that the rate is an assumption. If the user wants a measured number, run the translator once for real and report the actual flagged count.
 
 ## Rules that bind you here
 
 - The translator never blocks and never overrides the author. It proposes; you and the user decide.
-- Do not add a phrase to `vale/styles/Team/Insider.yml` as a bare word. Quote the phrase. Run `vale --config vale/.vale.ini --output=line tests/insider.literal-controls.md` afterwards; it must report zero hits.
+- Do not add a phrase to `vale/styles/Team/Insider.yml` as a bare word. Quote the phrase. Run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs lint tests/insider.literal-controls.md` afterwards; it must report zero hits.
 - If a rewrite says more than the original, it is wrong even when it reads better.

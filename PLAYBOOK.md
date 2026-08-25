@@ -473,3 +473,47 @@ dominates. One batched rewrite on the regression text invented a meaning
 that left no mark and passed the gate, which the per-sentence run had
 kept. One run is not a calibration, so paragraph mode for the rewrite
 is available and is not the default until a larger set says it is equal.
+
+## 11. The paragraph level: two phases before the sentences, and a rate-limited pool
+
+A page reads as machine-made before a word is read when its paragraphs
+are all one length, each opens with a bold label and closes on a short
+punchline, and every list has three items. The sentence checks see none
+of that. `tools/paragraphs.mjs` counts it (section 9's calibration file
+records the thresholds), and `translate.mjs` now runs two paragraph
+phases before the sentence phases.
+
+Phase 0 moves paragraph breaks and nothing else. One Sonnet call per
+document, run only when the paragraph lengths are uniform (cv under
+0.35), may merge two short neighbours or split a long paragraph at a
+sentence. Its gate is exact: the sequence of words after must equal the
+sequence before, or the answer is thrown away. A model cannot invent
+inside that gate. On the flattest page we had, eleven paragraphs became
+thirteen and the cv rose from 0.28 to 0.37, with the words checked
+identical.
+
+Phase 1 reshapes each paragraph the counters flagged: one Sonnet call
+with the counts as evidence, then the same gate as a sentence (the
+counters and the target check) plus a length band of 0.6 to 1.25 times
+the original. The first version of its rules produced the wrong fix: told
+UNIFORM or TRIAD, the model joined sentences with dashes and semicolons,
+which is the tell the sentence lane removes, and it regrouped real
+three-item lists with "along with". The rules now forbid the join and
+say a real list of three stays. On the same page the second run reshaped
+nine of twelve flagged paragraphs, refused three (a dropped negation, a
+"because" introduced twice), left the two real lists alone, introduced
+no dash and no semicolon, and the output carried no document-level flag.
+Then the sentence phases ran on the reshaped text.
+
+Phase 1 is the expensive part of the paragraph work and the slow part:
+two Sonnet calls per flagged paragraph, about four minutes for twelve
+paragraphs with eight calls in flight. `--no-structure` skips both
+phases.
+
+The pool that runs every call is rate-limited: at most `--rpm` calls
+started per minute (default 40), `--jobs` in flight (default 8), three
+attempts per call with backoff, and a fifteen-second pause for everything
+when a call looks rate-limited (a 429, "overloaded", "too many
+requests"). The run's summary line reports calls, retries and pauses.
+Raise `--rpm` and `--jobs` together when your account's limit allows it;
+the CLI hides the limit, so the summary line is how you find it.

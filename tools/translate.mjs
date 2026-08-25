@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { analyzeText, analyzeParagraph } from './paragraphs.mjs';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -39,6 +40,14 @@ const RATE = +opt('--rate', 0.3);
 // of three alike (--calibrate-find --by paragraph [--chunk n] reproduces it).
 const BY = opt('--by', 'sentence');
 const FIND_BY = opt('--find-by', 'sentence');
+// Phase 1, paragraph structure (--no-structure skips it): every paragraph the
+// counters flag goes to Sonnet once, with the flags as evidence, and comes
+// back restructured; the paragraph passes the same gate as a sentence plus
+// the target check, then the sentence phases run on the restructured text.
+const STRUCTURE = !args.includes('--no-structure');
+// Rate: at most RPM calls started per minute across the whole run, JOBS in
+// flight, retries with backoff, and a pause when a call looks rate-limited.
+const RPM = Math.max(1, +opt('--rpm', 40));
 const file = args.find((a, i) => !a.startsWith('--') && !(i > 0 && ['--find', '--rewrite', '--jobs', '--rate'].includes(args[i - 1])));
 if (!file && !args.includes('--calibrate-check') && !args.includes('--calibrate-find')) { console.error('usage: translate.mjs <file.md> [--find m] [--rewrite m] [--jobs n] [--all] [--no-check] | <file.md> --estimate [--rate r] [--secs f,r,c] | --calibrate-check'); process.exit(2); }
 const cwd = join(tmpdir(), 'claudian-empty');
@@ -132,6 +141,21 @@ function fidelityCounters(before, after) {
   return f;
 }
 
+// ---------- phase 1: the paragraph restructurer's rules ----------
+const STRUCTURE_RULES = [
+  'You are restructuring ONE paragraph so that it reads as written by a person, keeping every claim it makes. You have the paragraph and the counts that flagged it. Change the SHAPE, not the content.',
+  'Rules:',
+  '1. Keep every claim, every number, every name, every obligation and every negation. Add nothing. Drop nothing except the devices named below.',
+  '2. A bold or short label that opens the paragraph ("What it costs.") is a device: fold it into the first sentence or drop it.',
+  '3. A short aphoristic last sentence ("The human stays last.") is a device: fold its content into the sentence before it, or drop it if the paragraph already said it.',
+  '4. Sentence lengths that are all alike are a device: let one sentence run and one sentence stop short, without padding either.',
+  '5. A list of exactly three that is padding (one item restates another) becomes two; a list of three real things stays three, untouched. Do not regroup a real list with "along with" or "plus" to break its rhythm; that is a worse device than the list.',
+  '6. A closer that restates the paragraph ("In short, …") is dropped. A signpost that announces structure ("There are three reasons.") is dropped if the structure is visible without it.',
+  '7. Do not change the order of claims unless a device forced an order. Do not change who, what or where any sentence applies to. Do not change the register. Do not make it longer.',
+  '8. Never join sentences with a semicolon, a dash, or ", and" to vary length; a joined sentence is a new tell and will be flagged by the next check. Vary length by moving a clause into its own short sentence, or by letting one sentence carry two related claims in plain syntax. If the counters flagged nothing you can fix without a join, return the paragraph unchanged and say so.',
+  'Reply with one JSON object and nothing else: {"after": "<the restructured paragraph>", "note": "<one sentence: which devices went and how>"}',
+];
+
 // ---------- counters (the deterministic half, no lists) ----------
 const OBLIG = /\b(must|shall|never|always|only|is required|are required|is announced|is expressed|belongs to|counts as|is counted)\b/gi;
 const ROLE = /(?:readable|legible|visible|clear|obvious|intelligible|meaningful|opaque|known|familiar)(?: only)? to (?:that|the|this|a|an|its|our|one) (?:conversation|thread|session|transcript|chat|context|argument|diff|ledger|census|codebase|repo|repository|record|pipeline)s?\b|\b(?:conversation|thread|session|transcript|ledger|diff|census|codebase|repo|repository|pipeline|standard|rule|charter)s? (?:knows|reads|remembers|forgets|decides|understands|believes|wants|expects|thinks|assumes|cares)\b/i;
@@ -146,22 +170,45 @@ function counters(s, x) {
   return f;
 }
 
-// ---------- model plumbing ----------
-function ask(model, prompt, array = false) {
+// ---------- model plumbing: a rate-limited pool with retries ----------
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const starts = []; let pausedUntil = 0; const stats = { calls: 0, retries: 0, limited: 0 };
+async function take() {
+  for (;;) {
+    const now = Date.now();
+    if (now < pausedUntil) { await sleep(pausedUntil - now); continue; }
+    while (starts.length && now - starts[0] > 60_000) starts.shift();
+    if (starts.length < RPM) { starts.push(now); stats.calls++; return; }
+    await sleep(250);
+  }
+}
+function askOnce(model, prompt, array) {
   return new Promise((resolve) => {
     const p = spawn('claude', ['-p', '--model', model, '--setting-sources', ''], { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
-    let out = '';
-    const timer = setTimeout(() => { p.kill(); resolve(null); }, 180_000);
+    let out = '', err = '';
+    const timer = setTimeout(() => { p.kill(); resolve({ ok: false, why: 'timeout' }); }, 180_000);
     p.stdout.on('data', d => { out += d; });
+    p.stderr.on('data', d => { err += d; });
     p.on('close', code => {
       clearTimeout(timer);
-      if (code !== 0) return resolve(null);
+      const limited = /rate.?limit|429|overloaded|too many requests|capacity/i.test(err + out);
+      if (code !== 0) return resolve({ ok: false, why: limited ? 'limited' : `exit ${code}`, limited });
       const m = out.match(array ? /\[[\s\S]*\]/ : /\{[\s\S]*\}/);
-      if (!m) return resolve(null);
-      try { resolve(JSON.parse(m[0])); } catch { resolve(null); }
+      if (!m) return resolve({ ok: false, why: 'no json' });
+      try { resolve({ ok: true, value: JSON.parse(m[0]) }); } catch { resolve({ ok: false, why: 'bad json' }); }
     });
     p.stdin.end(prompt);
   });
+}
+async function ask(model, prompt, array = false) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await take();
+    const r = await askOnce(model, prompt, array);
+    if (r.ok) return r.value;
+    if (r.limited) { stats.limited++; pausedUntil = Date.now() + 15_000 * (attempt + 1); }
+    if (attempt < 2) { stats.retries++; await sleep(1500 * 2 ** attempt); }
+  }
+  return null;
 }
 // Paragraph mode: numbered sentences in, an array of objects with "n" out.
 const numbered = ss => ss.map((s, i) => `${i + 1}. ${s}`).join('\n');
@@ -243,9 +290,72 @@ if (args.includes('--calibrate-check')) {
   process.exit(0);
 }
 
-// ---------- split (identical to claudian.mjs) ----------
+// ---------- phase 0: paragraph breaks only ----------
+// Uniform paragraph length is a document-level tell that no per-paragraph
+// call can fix. One Sonnet call per document may move paragraph breaks —
+// merge two short neighbours, split one long paragraph at a sentence — and
+// nothing else. The gate is exact: the sequence of words after must equal
+// the sequence before. A model cannot invent inside that gate.
 const original = readFileSync(file, 'utf8');
-const raw = original.replace(/\r/g, '').replace(/^#+ .*$/gm, '').replace(/[*_`>]/g, '');
+let working = original;
+const paraRows = [];
+const tS0 = Date.now();
+let rebreak = null;
+if (STRUCTURE && !ESTIMATE) {
+  const { doc } = analyzeText(original);
+  if (doc.paragraphs >= 4 && doc.paragraph_length_cv !== null && doc.paragraph_length_cv < 0.35) {
+    const bodyParas = original.replace(/\r/g, '').split(/\n\n+/);
+    const prose = bodyParas.map((p, i) => ({ i, p })).filter(x => !/^\s*(#|\||```|-|\*|\d+\.|>)/.test(x.p) && x.p.split(/\s+/).length >= 12);
+    const wordsOf = s => s.replace(/[*_`]/g, '').split(/\s+/).filter(Boolean).join(' ');
+    const before = prose.map(x => x.p).join('\n\n');
+    const r = await ask(REWRITE, [
+      'The paragraphs below are all about the same length, which reads as generated prose. Move paragraph breaks and nothing else: merge two short neighbouring paragraphs when they continue one thought, split a long paragraph at a sentence boundary when it changes subject. Aim for paragraphs of clearly different lengths.',
+      'You may not change, add, remove or reorder a single word. Only the blank lines between paragraphs may change. Reply with one JSON object and nothing else: {"text": "<the same text with paragraph breaks moved, paragraphs separated by a blank line>", "note": "<what you merged or split>"}', '',
+      'THE TEXT:', before].join('\n'));
+    if (r && typeof r.text === 'string' && wordsOf(r.text) === wordsOf(before)) {
+      const newParas = r.text.replace(/\r/g, '').split(/\n\n+/).map(s => s.trim()).filter(Boolean);
+      const cvBefore = doc.paragraph_length_cv, cvAfter = analyzeText(newParas.join('\n\n')).doc.paragraph_length_cv;
+      if (cvAfter !== null && cvAfter > cvBefore) {
+        // Splice: replace the run of prose paragraphs, in place, keeping headings and tables where they were.
+        const out = []; let k = 0;
+        bodyParas.forEach((p, i) => { const isProse = prose.some(x => x.i === i); if (!isProse) out.push(p); else if (k === 0) { out.push(...newParas); k = 1; } });
+        working = out.join('\n\n');
+        rebreak = { cvBefore, cvAfter, before: prose.length, after: newParas.length, note: r.note || '' };
+      } else rebreak = { refused: `paragraph-length cv did not rise (${cvBefore.toFixed(2)} → ${cvAfter === null ? '-' : cvAfter.toFixed(2)})` };
+    } else rebreak = { refused: r && r.text ? 'the words changed; only breaks may move' : 'no answer' };
+    console.error(`# rebreak · ${rebreak.refused ? 'REFUSED: ' + rebreak.refused : `${rebreak.before} → ${rebreak.after} paragraphs · cv ${rebreak.cvBefore.toFixed(2)} → ${rebreak.cvAfter.toFixed(2)}`}`);
+  }
+}
+
+// ---------- phase 1: paragraph structure ----------
+if (STRUCTURE && !ESTIMATE) {
+  const { rows } = analyzeText(working);
+  const flaggedParas = rows.filter(r => r.flags.length && r.sentences >= 2);
+  console.error(`# structure · ${rows.length} paragraphs · ${flaggedParas.length} flagged by the counters`);
+  const outs = await pool(flaggedParas, r => ask(REWRITE, [...STRUCTURE_RULES, '', 'WHAT THE COUNTERS FOUND:', r.flags.join('; '), '', 'THE PARAGRAPH:', r.plain].join('\n')));
+  const checks = await pool(flaggedParas, (r, i) => (outs[i] && outs[i].after) ? ask(REWRITE, [...CHECKER, '', 'BEFORE:', r.plain, '', 'AFTER:', outs[i].after, '', 'DROPPED REASON:', '(none)'].join('\n')) : null);
+  flaggedParas.forEach((r, i) => {
+    const o = outs[i];
+    if (!o || !o.after) { paraRows.push([r.i, r.flags.join('; '), r.plain, '', 'no answer from the model']); return; }
+    const gate = fidelityCounters(r.plain, o.after);
+    const ratio = o.after.split(/\s+/).length / Math.max(1, r.words);
+    if (ratio > 1.25) gate.push(`longer than the original (${ratio.toFixed(2)}x)`);
+    if (ratio < 0.6) gate.push(`much shorter than the original (${ratio.toFixed(2)}x)`);
+    const c = checks[i];
+    if (!c) gate.push('target check returned nothing'); else if (c.target_changed) gate.push(`target changed: ${c.what || 'unnamed'}`);
+    const after = analyzeParagraph(o.after);
+    if (gate.length) { paraRows.push([r.i, r.flags.join('; '), r.plain, `(proposed, not applied) ${o.after}`, `REFUSED: ${gate.join('; ')}`]); return; }
+    // Replace the paragraph in the working text: exact, then whitespace-tolerant on the plain text.
+    let done = false;
+    if (working.includes(r.raw)) { working = working.replace(r.raw, o.after); done = true; }
+    else { const re = new RegExp(r.plain.split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+')); if (re.test(working)) { working = working.replace(re, o.after); done = true; } }
+    paraRows.push([r.i, r.flags.join('; '), r.plain, o.after, (done ? '' : 'NOT APPLIED (paragraph not found verbatim) · ') + (o.note || '') + (after.flags.length ? ` · still flagged: ${after.flags.map(f => f.split(' ')[0]).join(', ')}` : ' · counters clean')]);
+  });
+  console.error(`# structure · ${paraRows.filter(r => !/^\(proposed|^$/.test(r[3]) && r[3]).length} applied · ${paraRows.filter(r => /^\(proposed/.test(r[3])).length} refused · ${((Date.now() - tS0) / 1000).toFixed(0)}s`);
+}
+
+// ---------- split (identical to claudian.mjs), on the restructured text ----------
+const raw = working.replace(/\r/g, '').replace(/^#+ .*$/gm, '').replace(/[*_`>]/g, '');
 const paras = raw.split(/\n\n+/).flatMap(p => p.split(/\n(?=\s*[-*•]\s)/)).map(p => p.replace(/^\s*[-*•]\s+/, '').replace(/\n/g, ' ').trim()).filter(p => p && !/^\|/.test(p) && !/^\s*\|/.test(p));
 const opening = paras[0] || '';
 // A run of three or more fragments (FIVE words or fewer) is "bullets rendered
@@ -282,6 +392,10 @@ if (ESTIMATE) {
   const ckIn = byPara ? Math.round(ckCalls * (checker + avgPara + 40) + n * 2 * avgS) : Math.round(n * (checker + 3 * avgS + 40)), ckOut = n * 60;
   const price = (m, i, o) => ((PRICES[m] || PRICES.sonnet).in * i + (PRICES[m] || PRICES.sonnet).out * o) / 1e6;
   const find$ = ALL ? 0 : price(FIND, findIn, findOut), rw$ = price(REWRITE, rwIn, rwOut), ck$ = CHECK ? price(REWRITE, ckIn, ckOut) : 0;
+  const sRows = STRUCTURE ? analyzeText(original).rows.filter(r => r.flags.length && r.sentences >= 2) : [];
+  const sIn = sRows.reduce((a, r) => a + tok(STRUCTURE_RULES.join('\n')) + 2 * tok(r.plain) + checker + 60, 0), sOut = sRows.reduce((a, r) => a + tok(r.plain) + 80, 0);
+  const s$ = price(REWRITE, sIn, sOut);
+  if (STRUCTURE) console.log(`| structure (phase 1) | ${REWRITE} | ${2 * sRows.length} | ${sIn} | ${sOut} | $${s$.toFixed(3)} | — | — |`);
   // Seconds a call, find/rewrite/check. CLI start-up dominates and varies by
   // machine and hour (we have measured 2 s and 30 s for the same call on
   // different days). Pass --secs f,r,c from a real run.
@@ -293,7 +407,7 @@ if (ESTIMATE) {
   if (!ALL) console.log(`| find | ${FIND} | ${findCalls} | ${findIn} | ${findOut} | $${find$.toFixed(3)} | ${secs(findCalls, SF) * JOBS}s | ${secs(findCalls, SF)}s |`);
   console.log(`| rewrite | ${REWRITE} | ${rwCalls} | ${rwIn} | ${rwOut} | $${rw$.toFixed(3)} | ${secs(rwCalls, SR) * JOBS}s | ${secs(rwCalls, SR)}s |`);
   if (CHECK) console.log(`| check | ${REWRITE} | ${ckCalls} | ${ckIn} | ${ckOut} | $${ck$.toFixed(3)} | ${secs(ckCalls, SC) * JOBS}s | ${secs(ckCalls, SC)}s |`);
-  console.log(`| **total** | | ${(ALL ? 0 : findCalls) + rwCalls + (CHECK ? ckCalls : 0)} | ${(ALL ? 0 : findIn) + rwIn + (CHECK ? ckIn : 0)} | ${(ALL ? 0 : findOut) + rwOut + (CHECK ? ckOut : 0)} | **$${(find$ + rw$ + ck$).toFixed(2)}** | | |`);
+  console.log(`| **total** | | ${(ALL ? 0 : findCalls) + rwCalls + (CHECK ? ckCalls : 0) + 2 * sRows.length} | ${(ALL ? 0 : findIn) + rwIn + (CHECK ? ckIn : 0) + sIn} | ${(ALL ? 0 : findOut) + rwOut + (CHECK ? ckOut : 0) + sOut} | **$${(find$ + rw$ + ck$ + s$).toFixed(2)}** | | |`);
   console.log(`\nAssumptions: 4 characters a token; 60 output tokens a finder call, 200 a rewrite, 60 a check; ${SF}, ${SR} and ${SC} seconds a call (pass --secs f,r,c from a measured run; CLI start-up varies by machine and hour). The flag rate is the one number you must supply: 0.1 for ordinary prose, 0.3 for a first draft, 0.7 for text a reviewer has already sent back. Measure it once with a real run and pass --rate.`);
   process.exit(0);
 }
@@ -341,7 +455,7 @@ const t3 = Date.now();
 
 // ---------- outputs ----------
 const esc = s => String(s || '').replace(/\|/g, '\\|').replace(/\n+/g, ' ');
-const rows = []; let translated = original; let applied = 0, kept = 0, proposed = 0, unparsed = 0;
+const rows = []; let translated = working; let applied = 0, kept = 0, proposed = 0, unparsed = 0;
 flagged.forEach((x, k) => {
   const r = rewritten[k];
   if (!r) { unparsed++; rows.push(['(unparsed)', x.s, '', 'the rewriter returned nothing; run again']); return; }
@@ -366,8 +480,11 @@ flagged.forEach((x, k) => {
   rows.push([r.shape || '', x.s, after, (done ? '' : 'NOT APPLIED (sentence not found verbatim) · ') + (r.note || '') + (advisory ? ` · ${advisory}` : '')]);
 });
 const table = ['| shape | before | after | note |', '|---|---|---|---|', ...rows.map(r => `| ${r.map(esc).join(' | ')} |`)].join('\n');
-const summary = `${items.length} sentences · ${flagged.length} flagged · ${applied} rewritten and applied · ${proposed} proposed only (refused by the gate) · ${kept} kept · ${unparsed} unparsed · find ${((t1 - t0) / 1000).toFixed(0)}s · rewrite ${((t2 - t1) / 1000).toFixed(0)}s · check ${((t3 - t2) / 1000).toFixed(0)}s · ${JOBS} in flight`;
-const out = `# Translation of ${file}\n\n${summary}\n\n${table}\n`;
+const rebreakNote = rebreak ? `\n## Paragraph breaks (phase 0)\n\n${rebreak.refused ? `Refused: ${rebreak.refused}.` : `${rebreak.before} paragraphs became ${rebreak.after}; paragraph-length cv ${rebreak.cvBefore.toFixed(2)} → ${rebreak.cvAfter.toFixed(2)}. Words unchanged (checked). ${rebreak.note}`}\n` : '';
+const paraTable = paraRows.length ? ['\n## Paragraphs (phase 1: structure)\n', '| ¶ | counters | before | after | note |', '|---|---|---|---|---|', ...paraRows.map(r => `| ${r.map(esc).join(' | ')} |`)].join('\n') + '\n' : '';
+const pApplied = paraRows.filter(r => r[3] && !/^\(proposed/.test(r[3])).length, pRefused = paraRows.filter(r => /^\(proposed/.test(r[3])).length;
+const summary = `${STRUCTURE ? `paragraphs: ${paraRows.length} flagged · ${pApplied} restructured · ${pRefused} refused · ${((t0 - tS0) / 1000).toFixed(0)}s — then ` : ''}${items.length} sentences · ${flagged.length} flagged · ${applied} rewritten and applied · ${proposed} proposed only (refused by the gate) · ${kept} kept · ${unparsed} unparsed · find ${((t1 - t0) / 1000).toFixed(0)}s · rewrite ${((t2 - t1) / 1000).toFixed(0)}s · check ${((t3 - t2) / 1000).toFixed(0)}s · ${JOBS} in flight · ${stats.calls} calls, ${stats.retries} retries, ${stats.limited} rate-limited · cap ${RPM}/min`;
+const out = `# Translation of ${file}\n\n${summary}\n${rebreakNote}\n## Sentences (phase 2)\n\n${table}\n${paraTable}`;
 writeFileSync(`${file}.translation.md`, out);
 writeFileSync(`${file}.translated.md`, translated);
 console.log(out);

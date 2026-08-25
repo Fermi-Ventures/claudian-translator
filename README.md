@@ -2,7 +2,7 @@
 
 Claudian Translator converts Claude prose to text intended for humans.
 
-"Claudian" is prose written for the conversation that produced it. It reads fluently to the people who were there and stops everyone else: a coined phrase used as if it had been defined, a metaphor that carries the meaning, a reason folded into a rule, three obligations welded into one sentence, bullets rendered horizontally, an abstraction doing a person's job. The translator finds those sentences, rewrites each one for a reader who was not in the room, refuses any rewrite that shows the marks of invention, and hands the result back for a human to accept.
+"Claudian" is prose written for the conversation that produced it. It reads fluently to the people who were there and stops everyone else: a coined phrase used as if it had been defined, a metaphor that carries the meaning, a reason folded into a rule, three obligations welded into one sentence, bullets rendered horizontally, an abstraction doing a person's job. The translator works at two levels. It reshapes the paragraphs first, because a page of paragraphs all the same length, each opening with a bold label and closing on a short punchline, reads as machine-made before a word is read. Then it finds the sentences, rewrites each one for a reader who was not in the room, refuses any rewrite that shows the marks of invention, and hands the result back for a human to accept.
 
 ## What this does
 
@@ -43,7 +43,7 @@ By hand: `git clone` the repo, then `node cli.mjs install --into <your project>`
 - *"Claude, that sounds Claudian."*
 - *"Claude, produce user documentation for my engineers. Estimate token consumption to remove Claudian."*
 
-The first runs the translator on the document Claude just wrote. The second runs it on the passage you point at, or on Claude's last answer if you point at nothing, and shows you the before and after. The third prints sentences, calls and dollars before anything is spent. In every case you get `<doc>.translation.md`, the table of every flagged sentence with its shape, the original, the rewrite and a note, and `<doc>.translated.md`, the document with the rewrites that passed the gate applied. Sentences marked **kept** need something only the author knows, and the note says what. Sentences marked **proposed, not applied** are rewrites the gate refused, and the note names why. They are never applied without a person.
+The first runs the translator on the document Claude just wrote. The second runs it on the passage you point at, or on Claude's last answer if you point at nothing, and shows you the before and after. The third prints sentences, calls and dollars before anything is spent. In every case you get `<doc>.translation.md`, which records what happened to the paragraphs (breaks moved, paragraphs reshaped, or refused) and then the table of every flagged sentence with its shape, the original, the rewrite and a note, and `<doc>.translated.md`, the document with everything that passed the gate applied. Sentences marked **kept** need something only the author knows, and the note says what. Sentences marked **proposed, not applied** are rewrites the gate refused, and the note names why. They are never applied without a person.
 
 `PLAYBOOK.md` has the prompts, the writing rules, the calibration procedure and the failure modes, for anyone who wants to rebuild this from parts.
 
@@ -53,33 +53,39 @@ The first runs the translator on the document Claude just wrote. The second runs
 flowchart TB
   T["Text to review\na rule, a spec, a brief"] --> V
   subgraph D["Deterministic half — free, no variance"]
-    V["Vale and the counters\nreadability grade · sentence length · semicolons\nplus the Team lists of known phrases"]
+    V["Vale, the sentence counters and the paragraph counters\nreadability · sentence length · semicolons · known phrases\nuniform rhythm · lead-in labels · kickers · triads"]
   end
+  subgraph S["Paragraph phases — Sonnet, gated"]
+    B["Phase 0: move paragraph breaks only\ngate: every word identical"]
+    R["Phase 1: reshape a flagged paragraph\ngate: the counters and the target check"]
+    B --> R
+  end
+  V --> B
+  R --> F
   subgraph M["Model half — cents per document"]
     F["Find\nHaiku, one call per sentence"]
     W["Rewrite\nSonnet, one call per flagged sentence, by shape"]
     C["Gate\ncounters refuse a rewrite that adds an obligation, drops or adds a negation,\nswaps a polarity word, keeps a reason, or balloons\nSonnet refuses one that applies to a different who, what or where"]
     F --> W --> C
   end
-  V --> F
   C --> H
   H["The human\naccepts the applied rows, answers the kept rows, fixes the refused rows"]
   F -. "each phrase found becomes a list entry" .-> V
   H -. "each send-back becomes a list entry" .-> V
 ```
 
-Two halves and one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. The model half reads for meaning and rewrites. The counters then refuse any rewrite that shows the marks of invention. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration file is the one store you keep. It measures the models, and it can be quoted into the finder's prompt as examples.
+Two halves, two paragraph phases between them, and one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. Phase 0 may move paragraph breaks and nothing else, and its gate is exact: the sequence of words after must equal the sequence before, so it cannot invent. Phase 1 reshapes a paragraph the counters flagged, under rules that forbid the easy fix of joining sentences with a dash or a semicolon, and passes the same gate as a sentence. The model half reads for meaning and rewrites. The counters then refuse any rewrite that shows the marks of invention. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration file is the one store you keep. It measures the models, and it can be quoted into the finder's prompt as examples.
 
 ## Analysis
 
-**What it costs.** Two models do the work: Haiku reads every sentence, Sonnet rewrites the flagged ones and gives a second opinion on each rewrite. At a 30 percent flag rate, which is what a first draft produces, a page of 400 words costs about ten cents. `node cli.mjs estimate <file>` prints the exact figure for your file before you spend anything. Each sentence is its own call. Batching sentences by paragraph is available (`--by paragraph`) for the rewrite and the check, and it halves the number of calls. It is not the default: measured, Haiku stops flagging the strongest sentences when it reads them in a batch, and the dollar saving on a small document is a few cents.
+**What it costs.** Two models do the work: Haiku reads every sentence, Sonnet rewrites the flagged ones and gives a second opinion on each rewrite. At a 30 percent flag rate, which is what a first draft produces, a page of 400 words costs about twelve cents, of which the paragraph phases are about two. `node cli.mjs estimate <file>` prints the exact figure for your file before you spend anything. Each sentence is its own call. Batching sentences by paragraph is available (`--by paragraph`) for the rewrite and the check, and it halves the number of calls. It is not the default: measured, Haiku stops flagging the strongest sentences when it reads them in a batch, and the dollar saving on a small document is a few cents.
 
-| document | Haiku calls (find) | Sonnet calls (rewrite and target check) | cost |
+| document | Haiku calls (find) | Sonnet calls (paragraphs, rewrite, target check) | cost |
 |---|---|---|---|
-| one page, 400 words, about 27 sentences | 27 | 16 | about $0.10 |
-| a ten-page document | 270 | 160 | about $1 |
-| this README, measured with `estimate` | 61 | 36 | $0.23 |
-| the same at a 10 percent flag rate, prose that has already been edited once | 61 | 12 | $0.12 |
+| one page, 400 words, about 27 sentences | 27 | 22 | about $0.12 |
+| a ten-page document | 270 | 220 | about $1.20 |
+| this README, measured with `estimate` | 81 | 68 | $0.36 |
+| the same at a 10 percent flag rate, prose that has already been edited once | 81 | 36 | $0.22 |
 
 Prices are the public list at the time of writing (Haiku $1 in and $5 out per million tokens, Sonnet $3 and $15). Edit `PRICES` at the top of `tools/translate.mjs` if yours differ.
 

@@ -38,8 +38,8 @@ The translator reads markdown. You are the layer that carries a `.docx` through 
 1. Keep the original untouched. Convert a copy: `pandoc in.docx -t gfm --wrap=none -o in.md` (a Google document: download it as `.docx` first). If pandoc is missing, install it (`winget install JohnMacFarlane.Pandoc`, `brew install pandoc`, or the release binary) or ask the user to.
 2. Run the translator on `in.md` as usual and read `in.md.translation.md`.
 3. Rows marked *not applied (sentence not found verbatim)* are usually sentences with inline formatting. Apply those by hand in `in.md.translated.md`, keeping the marks on the words they mark.
-4. Convert back with the original's styles: `pandoc in.md.translated.md -o out.docx --reference-doc=in.docx`. The reference document supplies the fonts, heading styles and spacing; the markdown supplies the words.
-5. Compare before and after, the way only you can: list the headings, links, bold and italic runs, tables and images in `in.docx` and `out.docx` (`pandoc file.docx -t gfm` on each, then compare the marks) and re-apply anything the round trip dropped. Comments, tracked changes and complex layout do not survive pandoc; say so if the original had them.
+4. Convert back with the original's styles: `pandoc in.md.translated.md -o out.docx --reference-doc=in.docx`. The reference document supplies the fonts, heading styles and spacing. The markdown supplies the words.
+5. Compare before and after, the way only you can: list the headings, links, bold and italic runs, tables and images in `in.docx` and `out.docx` (`pandoc file.docx -t gfm` on each, then compare the marks) and re-apply anything the round trip dropped. Comments, tracked changes and complex layout do not survive pandoc. Say so if the original had them.
 6. Hand the user `out.docx` and the translation table. Never overwrite `in.docx`.
 
 ## When the user asks to estimate token consumption

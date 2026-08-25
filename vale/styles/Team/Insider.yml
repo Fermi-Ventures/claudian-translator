@@ -39,3 +39,8 @@ tokens:
   - '\bone defect, one standard\b'
   - '\bwearing an apron\b'
   - '\bin an apron\b'
+  # The lone-hero aphorism (reviewer, 25 Aug: "asks the one question it cannot
+  # answer alone" is "as claudian as it gets"): a tool given a person's role
+  # and a coined phrase to do it in.
+  - '\bthe one \w+ (?:it|you|they|we|he|she) (?:cannot|can''t|could not|couldn''t) \w+ alone\b'
+  - '\bsettles what it can\b'

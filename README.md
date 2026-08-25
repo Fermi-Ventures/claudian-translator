@@ -4,7 +4,7 @@ Claudian Translator converts Claude prose to text intended for humans.
 
 "Claudian" is prose written for the conversation that produced it. It reads fluently to the people who were there and stops everyone else: a coined phrase used as if it had been defined, a metaphor that carries the meaning, a reason folded into a rule, three obligations welded into one sentence, bullets rendered horizontally, an abstraction doing a person's job. A page of it has a shape too. Paragraphs all the same length, each opening with a bold label and closing on a short punchline, read as machine-made before a word is read.
 
-The translator works at both levels. It reshapes the paragraphs, then finds the sentences and rewrites each one for a reader who was not in the room. Every rewrite passes a gate that refuses the marks of invention. Claude reads the result, settles what it can, and tells you what changed. Its scope is text. Any container the text lives in is the job of the Claude session that runs it.
+The translator works at both levels. It reshapes the paragraphs, then finds the sentences and rewrites each one for a reader who was not in the room. Every rewrite passes a gate that refuses the marks of invention. Claude reads the result, fixes what it can, and tells you what changed. Its scope is text. Any container the text lives in is the job of the Claude session that runs it.
 
 ## What this does
 
@@ -47,7 +47,7 @@ By hand: `git clone` the repo, then `node cli.mjs install --into <your project>`
 - *"Claude, that sounds Claudian."*
 - *"Claude, produce user documentation for my engineers. Estimate token consumption to remove Claudian."*
 
-The first runs the translator on the document Claude just wrote and hands you the finished document. The second runs it on the passage you point at, or on Claude's last answer if you point at nothing, and shows you the before and after. The third prints sentences, calls, dollars and minutes before anything is spent. In each case you get a sentence or two on what changed and, when the translator needed something only you know, one question. You never read a table unless you ask to.
+The first runs the translator on the document Claude just wrote and hands you the finished document. The second runs it on the passage you point at, or on Claude's last answer if you point at nothing, and shows you the before and after. The third prints sentences, calls, dollars and minutes before anything is spent. In each case you get a sentence or two on what changed and, if the translator needed something only you know, a question. You never read a table unless you ask to.
 
 ### What a run does
 
@@ -97,13 +97,13 @@ flowchart TB
     F --> W --> C
   end
   C --> O["The document, rewrites applied\nplus a short table of what changed and what was held, with before, after and diff"]
-  O --> H["Claude reads the table, settles what it can, tells you what changed\nand asks the one question it cannot answer alone, if there is one"]
+  O --> H["Claude reads the table, fixes what it can, tells you what changed\nand asks you about anything it still needs"]
   O -. "when the text came out of Word, HTML or code" .-> X["The Claude session patches the pairs back into the container"]
   F -. "each phrase found becomes a list entry" .-> V
   H -. "a send-back becomes a list entry" .-> V
 ```
 
-Two halves, two paragraph phases between them, one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. The paragraph phases fix the shape of the page under gates that cannot invent. The sentence phases read for meaning and rewrite, and the gate refuses the marks of invention. What reaches you is a finished document and a sentence or two on what changed. The table is Claude's to read. On the regression text, sixteen of twenty-one rows were done when the run ended and five carried a question, and Claude can answer most of those itself, since it wrote the text. What it cannot answer, it asks. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration files are the one store you keep.
+Two halves, two paragraph phases between them, one loop. The deterministic half counts what can be counted and matches every phrase it has been taught. The paragraph phases fix the shape of the page under gates that cannot invent. The sentence phases read for meaning and rewrite, and the gate refuses the marks of invention. What reaches you is a finished document and a sentence or two on what changed. The table is Claude's to read. On the regression text, sixteen of twenty-one rows were done when the run ended and five carried a question, and Claude can answer most of those itself, since it wrote the text. It asks you about the rest. Every phrase a model or the human names goes back to the lists, so the free half grows and the same phrase is never paid for twice. The lists are memory, not detection. If you would rather not maintain them, the counters need no data, and the calibration files are the one store you keep.
 
 ## Analysis
 

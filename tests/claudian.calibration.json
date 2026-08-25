@@ -23,5 +23,7 @@
   {"label":1,"provenance":"reviewer","src":"README lede, 29 Aug — \"uncanny valley… conversations don't read\"; the finder had flagged it and the author (the author) neither rewrote nor defended","text":"Standards, specs and agent briefs written inside a long AI-assisted conversation come out readable only to that conversation."},
   {"label":0,"provenance":"author","src":"README lede as rewritten 29 Aug — the person named","text":"Standards, specs and agent briefs written inside a long AI-assisted conversation come out readable only to the people who were in that conversation."},
   {"label":0,"provenance":"author","src":"Control: a document that proves — conventional English, not the role sign ","text":"The migration is what proves the trigger was dropped."},
-  {"label":0,"provenance":"author","src":"Control: literal use of a listed word","text":"Do not remove a load-bearing wall without a structural engineer's sign-off."}
+  {"label":0,"provenance":"author","src":"Control: literal use of a listed word","text":"Do not remove a load-bearing wall without a structural engineer's sign-off."},
+  {"label":1,"provenance":"reviewer","src":"the README, 25 Aug — the reviewer: \"as claudian as it gets\"; a tool given a person's role and a coined phrase to do it in","text":"Claude reads the table, settles what it can, tells you what changed, and asks the one question it cannot answer alone, if there is one."},
+  {"label":0,"provenance":"author","src":"the same sentence, plain","text":"Claude reads the table, fixes what it can, tells you what changed, and asks you about anything it still needs."}
 ]

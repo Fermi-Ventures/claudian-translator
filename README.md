@@ -45,7 +45,7 @@ The skill runs `cli.mjs translate` on the document. You get two files back: `<do
 By hand:
 
 ```sh
-node cli.mjs translate doc.md              # find (cheap model), rewrite (strong model), gate (counters), apply
+node cli.mjs translate doc.md              # find (Haiku), rewrite (Sonnet), gate (counters), apply
 node cli.mjs estimate doc.md --rate 0.3    # no model calls: sentences, tokens, dollars, minutes
 node cli.mjs lint doc.md                   # the free Vale lint on its own
 ```
@@ -54,24 +54,22 @@ node cli.mjs lint doc.md                   # the free Vale lint on its own
 
 ## Analysis
 
-**What it was measured on.** Rule text: two engineering standards drafted by AI agents and returned by a human reviewer five times in 48 hours. On the shortest returned standard the lane found ten defects between the returned text and the current one, and all ten are resolved: four of form, two ambiguities a busy reader resolves the wrong way, two insider phrases or reasons placed inside a rule, one candidate contradiction, and one clause that failed to reach its reader. The counters found the four form defects for nothing, and two of those four had passed every model reader. The model steps found the six defects of meaning for about eight cents an iteration. Two of the reviewer's five send-backs that week were caught by no instrument. The human stays last.
+**What it costs.** Two models do the work: Haiku reads every sentence, Sonnet rewrites the flagged ones and gives a second opinion on each rewrite. At a 30 percent flag rate, which is what a first draft produces, a page of 400 words costs about ten cents. `node cli.mjs estimate <file>` prints the exact figure for your file before you spend anything.
 
-**The finder.** On 25 labelled sentences (the reviewer's send-backs and the sentences they accepted), the cheap model runs at precision 0.77 and recall 0.83, the strong one at 0.69 and 0.92. A known phrase slips about one run in six unless a list remembers it, which is what the Team lists are for.
+| document | Haiku calls (find) | Sonnet calls (rewrite and advisory check) | cost |
+|---|---|---|---|
+| one page, 400 words, about 27 sentences | 27 | 16 | about $0.10 |
+| a ten-page document | 270 | 160 | about $1 |
+| this README, measured with `estimate` | 61 | 36 | $0.23 |
+| the same at a 10 percent flag rate, prose that has already been edited once | 61 | 12 | $0.12 |
 
-**The gate.** The converter's first run on the regression text (`tests/before.md`: the before column above in prose, plus three controls) flagged 17 of 24 sentences, rewrote 12 and kept 5 with a named reason. Three of the twelve rewrites said more than the original, and one turned a statement of evidence into a new obligation. A strong-model check asked "does the rewrite mean the same" was calibrated on 18 labelled pairs (12 rewrites the reviewer accepted, 6 inventions) in two framings and scored 4 of 12 and 2 of 6, near chance, so its verdict is printed as advice and never decides. Three counters decide instead: a rewrite that adds an obligation word, keeps a reason inside the rule, or runs past 2.5 times the original's length is refused and shown as a proposal. On the same 18 pairs the counters accept 11 of the 12 and refuse 4 of the 6. The two inventions with no countable tell are the reader's to catch, and the table exists so they can.
+Prices are the public list at the time of writing (Haiku $1 in and $5 out per million tokens, Sonnet $3 and $15). Edit `PRICES` at the top of `tools/translate.mjs` if yours differ.
 
-**The result.** With the gate, and with a run of fragments merged into one unit so it can be folded rather than expanded, the regression text gives 21 units, 12 flagged, 7 applied, 2 refused and 3 kept. The two refusals are an invention at 3.4 times the original's length and a split that added a *must*. The three kept are the two sentences whose meaning only the author holds and the literal control. The folded hook came back as one sentence of the original's length.
+**What you get back.** Every flagged sentence lands in the table with one of three outcomes. *Applied*: the rewrite passed the gate and is already in `<doc>.translated.md`. *Kept*: Sonnet could not rewrite it without knowledge only the author has, and the note says what is missing. *Proposed, not applied*: the rewrite showed a mark of invention and was refused, and the note names the mark. You read the table, not the document.
 
-**Cost for 100 pages.** About 40,000 words of end-user documentation, at the measured rates, with the calls run eight at a time.
+**How we know it does not invent.** The first version of the converter had no gate. On the regression text it rewrote twelve sentences and three of them said more than the original, and one turned a statement of evidence into a new obligation. So the gate was built and calibrated on labelled pairs: twelve rewrites a human reviewer had accepted and six inventions from those early runs. A Sonnet call asked "does the rewrite mean the same" accepted 4 of the 12 good rewrites and let 2 of the 6 inventions through, in one framing, and 5 and 5 in another: near chance both times, so its answer is printed as advice and never decides. Three counters decide instead. A rewrite that adds an obligation word (*must*, *never*, *only*), keeps a reason inside the rule, or runs past 2.5 times the original's length is refused. On the same pairs the counters accept 11 of the 12 and refuse 4 of the 6. The two inventions they miss are the ones with no countable mark: a plausible definition supplied from outside the paragraph. Those are yours to catch, and the table is short enough that you can.
 
-| step | what it catches | model spend, 100 pages | machine time | human time |
-|---|---|---|---|---|
-| Vale with the Team lists | form: long sentences, semicolons, grade, every known phrase | $0 | about 2 seconds | reading flags, about 2 minutes a page |
-| find (cheap model, one call a sentence) | new coined phrases and metaphors | about $1.50 | one at a time: about 70 minutes<br>eight at a time: about 10 minutes | none |
-| rewrite (strong model, one call a flagged sentence) | the rewrite, by shape | about $2.50 at a 10 percent flag rate | one at a time: about 35 minutes<br>eight at a time: about 5 minutes | none |
-| gate and advisory check (counters, plus one strong-model call a rewrite) | a rewrite that adds an obligation, keeps a reason, or balloons | about $1.00 | one at a time: about 25 minutes<br>eight at a time: about 3 minutes | none |
-| accept | the kept and the proposed rows | $0 | none | about a minute a row. At a 10 percent flag rate, about 4.5 hours |
-| **total** | | **about $5** | **one at a time: about 2 hours<br>eight at a time: about 18 minutes** | **about 8 hours of editor time** |
+**What the numbers are, and are not.** Eighteen pairs and twenty-five labelled sentences are calibration sets, not samples. They exist so that every change to a prompt or a counter is run against the same pass/fail set before it ships, and the finder's figures on its set (Haiku precision 0.77 and recall 0.83, Sonnet 0.69 and 0.92) are read the same way: a regression line, not a claim about all prose. Add your own reviewer's send-backs to `tests/claudian.calibration.json` and `tests/fidelity.calibration.json` and the numbers become yours.
 
 ## Solution workflow
 
@@ -82,9 +80,9 @@ flowchart TB
     V["Vale and the counters\nreadability grade · sentence length · semicolons\nplus the Team lists of known phrases"]
   end
   subgraph M["Model half — cents per document"]
-    F["Find\ncheap model, one call per sentence"]
-    W["Rewrite\nstrong model, one call per flagged sentence, by shape"]
-    C["Gate\ncounters refuse a rewrite that adds an obligation, keeps a reason, or balloons\nthe model's same-meaning opinion is advisory"]
+    F["Find\nHaiku, one call per sentence"]
+    W["Rewrite\nSonnet, one call per flagged sentence, by shape"]
+    C["Gate\ncounters refuse a rewrite that adds an obligation, keeps a reason, or balloons\nSonnet's same-meaning opinion is advisory"]
     F --> W --> C
   end
   V --> F

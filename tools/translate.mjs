@@ -347,7 +347,7 @@ if (STRUCTURE && !ESTIMATE) {
   const checks = await pool(flaggedParas, (r, i) => (outs[i] && outs[i].after) ? ask(REWRITE, [...CHECKER, '', 'BEFORE:', r.plain, '', 'AFTER:', outs[i].after, '', 'DROPPED REASON:', '(none)'].join('\n')) : null);
   flaggedParas.forEach((r, i) => {
     const o = outs[i];
-    if (!o || !o.after) { paraRows.push([r.i, r.flags.join('; '), r.plain, '', 'no answer from the model']); return; }
+    if (!o || !o.after) { paraRows.push([r.i, r.flags.join('; '), r.plain, '', 'no answer from the model', r.raw]); return; }
     // A lead-in label is itself a bold run; dropping it is the fix, so it is
     // taken off the "before" before the marks are counted.
     const rawForMarks = r.flags.includes('LEADIN') ? r.raw.replace(/^\s*\*\*[^*\n]{2,40}\.\*\*\s*/, '') : r.raw;
@@ -358,12 +358,12 @@ if (STRUCTURE && !ESTIMATE) {
     const c = checks[i];
     if (!c) gate.push('target check returned nothing'); else if (c.target_changed) gate.push(`target changed: ${c.what || 'unnamed'}`);
     const after = analyzeParagraph(o.after);
-    if (gate.length) { paraRows.push([r.i, r.flags.join('; '), r.plain, `(proposed, not applied) ${o.after}`, `REFUSED: ${gate.join('; ')}`]); return; }
+    if (gate.length) { paraRows.push([r.i, r.flags.join('; '), r.plain, `(proposed, not applied) ${o.after}`, `REFUSED: ${gate.join('; ')}`, r.raw]); return; }
     // Replace the paragraph in the working text: exact, then whitespace-tolerant on the plain text.
     let done = false;
     if (working.includes(r.raw)) { working = working.replace(r.raw, o.after); done = true; }
     else { const re = new RegExp(r.plain.split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+')); if (re.test(working)) { working = working.replace(re, o.after); done = true; } }
-    paraRows.push([r.i, r.flags.join('; '), r.plain, o.after, (done ? '' : 'NOT APPLIED (paragraph not found verbatim) · ') + (o.note || '') + (after.flags.length ? ` · still flagged: ${after.flags.map(f => f.split(' ')[0]).join(', ')}` : ' · counters clean')]);
+    paraRows.push([r.i, r.flags.join('; '), r.plain, o.after, (done ? '' : 'NOT APPLIED (paragraph not found verbatim) · ') + (o.note || '') + (after.flags.length ? ` · still flagged: ${after.flags.map(f => f.split(' ')[0]).join(', ')}` : ' · counters clean'), r.raw]);
   });
   console.error(`# structure · ${paraRows.filter(r => !/^\(proposed|^$/.test(r[3]) && r[3]).length} applied · ${paraRows.filter(r => /^\(proposed/.test(r[3])).length} refused · ${((Date.now() - tS0) / 1000).toFixed(0)}s`);
 }
@@ -501,6 +501,28 @@ const summary = `${STRUCTURE ? `paragraphs: ${paraRows.length} flagged · ${pApp
 const out = `# Translation of ${file}\n\n${summary}\n${rebreakNote}\n## Sentences (phase 2)\n\n${table}\n${paraTable}`;
 writeFileSync(`${file}.translation.md`, out);
 writeFileSync(`${file}.translated.md`, translated);
+// Machine-readable pairs, so a session can patch them into whatever container
+// the text came out of (Word, HTML, JSX, a resource file) without parsing the
+// table. "before" is the text exactly as it sat in the file (marks included,
+// for a verbatim match); "after" is null for kept and refused rows; "status"
+// says which; "diff" is a word-level diff in [-old-]{+new+} notation, so the
+// patching session knows which words kept their place (carry their marks
+// over) and which are new (a mark there is a decision).
+function wdiff(a, b) {
+  const A = a.split(/\s+/).filter(Boolean), B = b.split(/\s+/).filter(Boolean);
+  const n = A.length, m = B.length, L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = []; let i = 0, j = 0, del = [], ins = [];
+  const flush = () => { if (del.length) out.push(`[-${del.join(' ')}-]`); if (ins.length) out.push(`{+${ins.join(' ')}+}`); del = []; ins = []; };
+  while (i < n && j < m) { if (A[i] === B[j]) { flush(); out.push(A[i]); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) del.push(A[i++]); else ins.push(B[j++]); }
+  while (i < n) del.push(A[i++]); while (j < m) ins.push(B[j++]); flush();
+  return out.join(' ');
+}
+const pairs = [
+  ...paraRows.map(r => { const after = !r[3] || /^\(proposed/.test(r[3]) ? null : r[3]; return { level: 'paragraph', status: !r[3] ? 'unanswered' : after === null ? 'refused' : 'applied', before: r[5] || r[2], before_plain: r[2], after, diff: after === null ? null : wdiff(r[5] || r[2], after), note: r[4] }; }),
+  ...rows.map(r => { const after = r[2] === '(kept)' || /^\(proposed/.test(r[2]) || r[2] === '' ? null : r[2].replace(/ \*\(reason for the note: .*\)\*$/, ''); return { level: 'sentence', shape: r[0], status: r[2] === '(kept)' ? 'kept' : /^\(proposed/.test(r[2]) ? 'refused' : r[2] === '' ? 'unanswered' : 'applied', before: r[1], after, diff: after === null ? null : wdiff(r[1], after), note: r[3] }; }),
+];
+writeFileSync(`${file}.translation.json`, JSON.stringify({ file, summary, rebreak, pairs }, null, 1));
 console.log(out);
 console.error(`# wrote ${file}.translation.md and ${file}.translated.md · ${summary}`);
 process.exit(0);

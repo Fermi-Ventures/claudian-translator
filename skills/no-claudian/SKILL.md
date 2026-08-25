@@ -31,16 +31,15 @@ They mean the text you just produced, or the passage they quote. Do not argue an
    Then run `node ${CLAUDE_PLUGIN_ROOT}/cli.mjs paragraphs <file>` for the shape of the whole: paragraphs of one length, a bold label opening every paragraph, a short kicker closing every paragraph, lists of three everywhere. These are what a reader senses as "this is AI" before reading a word. Vary the paragraph lengths, drop the labels, let a paragraph end on its longest sentence.
 5. Report to the user in three lines: how many sentences, how many rewritten, and the kept sentences with what each needs.
 
-## When the document is a Word or Google document
+## When the text lives inside something else
 
-The translator reads markdown. You are the layer that carries a `.docx` through it and back, and you can see both sides, so nothing has to be lost.
+The translator's contract is text in, before/after pairs out. It reads markdown or plain text and nothing else, on purpose. You are the adapter for every container the text can live in. You can see the container and the tool cannot: a Word or Google document, an HTML page, a React component, a JSON resource file, a CMS field, an email. The same three steps every time.
 
-1. Keep the original untouched. Convert a copy: `pandoc in.docx -t gfm --wrap=none -o in.md` (a Google document: download it as `.docx` first). If pandoc is missing, install it (`winget install JohnMacFarlane.Pandoc`, `brew install pandoc`, or the release binary) or ask the user to.
-2. Run the translator on `in.md` as usual and read `in.md.translation.md`.
-3. Rows marked *not applied (sentence not found verbatim)* are usually sentences with inline formatting. Apply those by hand in `in.md.translated.md`, keeping the marks on the words they mark.
-4. Convert back with the original's styles: `pandoc in.md.translated.md -o out.docx --reference-doc=in.docx`. The reference document supplies the fonts, heading styles and spacing. The markdown supplies the words.
-5. Compare before and after, the way only you can: list the headings, links, bold and italic runs, tables and images in `in.docx` and `out.docx` (`pandoc file.docx -t gfm` on each, then compare the marks) and re-apply anything the round trip dropped. Comments, tracked changes and complex layout do not survive pandoc. Say so if the original had them.
-6. Hand the user `out.docx` and the translation table. Never overwrite `in.docx`.
+1. **Extract the prose to a text file**, one block per paragraph, and keep the original untouched. For Word, `pandoc in.docx -t gfm --wrap=none -o in.md` (a Google document: download it as `.docx` first). For HTML, MDX or JSX/TSX, copy out the text nodes and the prose attributes (`title`, `placeholder`, `aria-label`, `alt`) and string literals of a sentence or more. Leave expressions, code and attribute names where they are. For a resource file, the string values.
+2. **Run the translator** on the text file. Read `<file>.translation.md` for the story and `<file>.translation.json` for the pairs: each has `level`, `status` (applied, refused, kept), `before` exactly as it sat in the file, `after`, a word-level `diff` in `[-old-]{+new+}` notation, and `note`. The diff tells you which words kept their place, so their marks carry over, and which are new, where a mark is your decision.
+3. **Patch each applied pair back** into the container at the exact place its `before` came from, verbatim match, keeping every mark, tag and attribute around it. Refused and kept rows are not patched. Show them to the user with their notes. Never touch anything that is not prose.
+
+For Word, step 3 has a short cut: `pandoc in.md.translated.md -o out.docx --reference-doc=in.docx` rebuilds the document with the original's fonts, heading styles and spacing, and you then compare the marks on both sides (`pandoc file.docx -t gfm` on each) and re-apply anything the round trip dropped. Comments, tracked changes and complex layout do not survive pandoc. Say so if the original had them. If pandoc is missing, install it (`winget install JohnMacFarlane.Pandoc`, `brew install pandoc`) or ask the user to. Hand the user `out.docx` and the translation table. Never overwrite the original.
 
 ## When the user asks to estimate token consumption
 

@@ -518,8 +518,12 @@ requests"). The run's summary line reports calls, retries and pauses.
 Raise `--rpm` and `--jobs` together when your account's limit allows it.
 The CLI hides the limit, so the summary line is how you find it.
 
-**Formatting and file types.** The translator reads markdown or plain
-text. Phase 1 is given each paragraph exactly as it sits in the file, is
+**Scope: text.** The translator reads markdown or plain text and
+nothing else, on purpose. Any container the text lives in (Word, HTML,
+JSX, a resource file) is the session's job: extract the prose, run,
+patch the pairs from `<file>.translation.json` back verbatim. The tool
+would otherwise need a parser per file type, each a place to lose
+formatting. The session already has both sides in view. Phase 1 is given each paragraph exactly as it sits in the file, is
 told to keep every mark on the words it marks and never to add a heading,
 a list or a label, and is refused if the count of links, code spans, bold
 or italic runs, footnote marks, headings or list markers differs before
